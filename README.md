@@ -4,7 +4,7 @@ A small window, outside the game, for editing a Helldivers 2 mod's settings.
 A mod that supports it applies each change in the game within a second, so
 you see the effect while you play.
 
-Supported mods: **Super Holo Kit** 1.125.1 or later.
+Supported mods: **Super Holo Kit** 1.125.1 or later (from 1.126.0 its settings appear as soon as the game starts).
 
 One file of about 100 KB. It runs on the .NET Framework 4.8 that Windows 10
 (1903 or later) and Windows 11 already have: nothing else to install.
@@ -53,7 +53,17 @@ the window shows it and says so.
 A mod takes part with two things:
 
 1. At launch, write `<name>_options.json` into the folder above (only when
-   it differs from what is there):
+   it differs from what is there).
+
+   > **Write it as early as you can: as your mod loads, not after your own
+   > settings have loaded.** Until the file exists the window cannot show
+   > your mod. Super Holo Kit wrote it after its settings' load at first,
+   > and players waited about 45 s after starting the game. If part of the
+   > list is only known later (`menu_owned`, once another menu has taken its
+   > keys), write the list at load anyway and write it again then. The list
+   > does not change while the game runs otherwise.
+
+   For example:
 
    ```json
    {
@@ -113,7 +123,7 @@ MIT -- see `LICENSE`.
 一个游戏外的小窗口，用来修改 Helldivers 2 模组的设置。支持本窗口的模组会在
 一秒内把改动应用到游戏里，边玩边调就能看到效果。
 
-支持的模组：**Super Holo Kit** 1.125.1 及以后。
+支持的模组：**Super Holo Kit** 1.125.1 及以后（1.126.0 起，开游戏后设置马上出现）。
 
 只有一个约 100 KB 的文件，用的是 Windows 10（1903 及以后）和 Windows 11
 自带的 .NET Framework 4.8，不需要另外安装任何东西。
@@ -145,6 +155,15 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 恢复本组默认或整个 Mod 默认。
 
 如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
+
+### 给 mod 作者
+
+接入方式见上面英文的 “For mod authors”。最重要的一点：
+
+> **设置清单 `<名字>_options.json` 要尽早写：mod 一加载就写，不要等自己的设置读完。**
+> 文件出现之前，窗口里看不到你的 mod。Super Holo Kit 起初是在读完设置后才写，
+> 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
+> 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
 
 ### 构建
 

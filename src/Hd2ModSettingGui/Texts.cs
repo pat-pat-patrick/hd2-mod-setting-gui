@@ -57,7 +57,7 @@ namespace Hd2ModSettingGui
             ["open_folder"] = ("Open folder", "打开文件夹"),
             ["how"] = ("HOW TO MAKE SETTINGS APPEAR", "怎么让设置出现"),
             ["s1"] = ("Install a supported mod", "安装支持的 mod"),
-            ["s1d"] = ("e.g. Super Holo Kit 1.125.1 or later", "例如 Super Holo Kit 1.125.1 或更高版本"),
+            ["s1d"] = ("e.g. Super Holo Kit 1.126.0 or later", "例如 Super Holo Kit 1.126.0 或更高版本"),
             ["s2"] = ("Start the game once", "启动一次游戏"),
             ["s2d"] = ("The main menu is enough: the mod writes its list at launch", "进到主菜单即可，mod 会在启动时写入列表"),
             ["s3"] = ("Come back here", "回到这里"),
