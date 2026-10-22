@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\fixtures\super_holo_kit_options.json" Link="fixtures\super_holo_kit_options.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\super_holo_hud_options.json" Link="fixtures\super_holo_hud_options.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

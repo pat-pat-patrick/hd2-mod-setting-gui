@@ -1,5 +1,5 @@
-// The window's core on the settings list Super Holo Kit really writes
-// (fixtures/super_holo_kit_options.json, made by the kit's own code).
+// The window's core on the settings list Super Holo HUD really writes
+// (fixtures/super_holo_hud_options.json, made by the kit's own code).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,14 +14,14 @@ namespace Hd2ModSettingGui.Tests
     public sealed class Folder : IDisposable
     {
         public readonly string Dir = Path.Combine(Path.GetTempPath(), "hd2msg_" + Guid.NewGuid().ToString("N"));
-        public static string Fixture => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fixtures", "super_holo_kit_options.json");
+        public static string Fixture => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fixtures", "super_holo_hud_options.json");
         public Folder(bool withList = true)
         {
             Directory.CreateDirectory(Dir);
-            if (withList) File.Copy(Fixture, Path.Combine(Dir, "super_holo_kit_options.json"));
+            if (withList) File.Copy(Fixture, Path.Combine(Dir, "super_holo_hud_options.json"));
         }
-        public string Settings => Path.Combine(Dir, "super_holo_kit_settings.txt");
-        public string List => Path.Combine(Dir, "super_holo_kit_options.json");
+        public string Settings => Path.Combine(Dir, "super_holo_hud_settings.txt");
+        public string List => Path.Combine(Dir, "super_holo_hud_options.json");
         public void Dispose() { try { Directory.Delete(Dir, true); } catch (IOException) { } }
 
         /// <summary>The file as the kit reads it: string.gmatch "([%w_]+)=([^\r\n]*)".</summary>
@@ -74,7 +74,7 @@ namespace Hd2ModSettingGui.Tests
             using (var f = new Folder())
             {
                 File.WriteAllText(Path.Combine(f.Dir, "other.txt"), "");
-                Assert.Equal(new[] { "super_holo_kit" }, Protocol.FindMods(f.Dir).Select(m => m.Name).ToArray());
+                Assert.Equal(new[] { "super_holo_hud" }, Protocol.FindMods(f.Dir).Select(m => m.Name).ToArray());
                 Assert.Empty(Protocol.FindMods(Path.Combine(f.Dir, "none")));
             }
         }
@@ -84,7 +84,7 @@ namespace Hd2ModSettingGui.Tests
         {
             using (var f = new Folder(false))
             {
-                var log = Path.Combine(f.Dir, "super_holo_kit.log");
+                var log = Path.Combine(f.Dir, "super_holo_hud.log");
                 File.WriteAllText(log, "12:00:01 something\n12:00:05 settings window: applied size=0.5\n12:00:09 other\n");
                 Assert.Equal("12:00:05", Protocol.LastApplied(log));
                 Assert.Null(Protocol.LastApplied(Path.Combine(f.Dir, "none.log")));
@@ -130,7 +130,7 @@ namespace Hd2ModSettingGui.Tests
             using (var f = new Folder())
             {
                 var m = ModList.Load(f.List);
-                Assert.Equal("Super Holo Kit", m.Title);
+                Assert.Equal("Super Holo HUD", m.Title);
                 Assert.True(m.Options.Count >= 60);
                 Assert.Equal(f.Settings, m.SettingsPath);
                 Assert.All(m.Pages.SelectMany(p => p.Keys), k => Assert.NotNull(m.Spec(k)));
