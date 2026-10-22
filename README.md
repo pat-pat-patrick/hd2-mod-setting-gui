@@ -28,19 +28,25 @@ Windows 11 hovering the maximize button offers the snap layouts. A list
 that appears in the folder later is loaded by itself; "Change folder" points
 the window elsewhere and remembers it.
 
+A key setting is set by clicking it and pressing the key (or the middle or a
+side mouse button); Esc leaves it as it was, the cross clears it.
+
 Search finds a setting in any group. A changed setting shows an eraser
 that puts it back to its default; the footer undoes the last change, resets
 the group shown or the whole mod. A slider's value can also be typed, or
 stepped with the arrow keys or the small arrows beside it.
 
 On Windows 11 (22H2 or later) the window's ground is acrylic: what is
-behind it shows through, blurred. While you change a setting, everything but
-that setting's control turns clear for a moment, so with the game in
-borderless windowed mode you watch the change land in the game; it comes
-back 2.5 s after the last change, or when you let go of a slider.
+behind it shows through, blurred. While you change a setting its mod marks
+for it (a size, a colour, a position), everything but that setting's control
+turns clear for a moment, so with the game in borderless windowed mode you
+watch the change land in the game; it comes back 2.5 s after the last
+change, or when you let go of a slider.
 
-The window starts in Windows' language (Chinese or English); the button in
-the header switches it, and the window keeps that choice for the next start.
+"Settings" in the header opens the window's own settings: the language
+(at first Windows' own, then the one you chose), the folder with the
+settings lists, the hiding above (on by default), and this repository's
+address.
 
 ## What it touches
 
@@ -102,8 +108,17 @@ A mod takes part with two things:
    picked or typed). `pages` lists the
    keys shown, page by page; without it every option is on one page.
    `menu_owned` lists keys another menu holds (shown, not editable).
-   A description may be several lines: `
-` starts a new one.
+   A description may be several lines: `\n` starts a new one.
+   `type` `key` is a key: its value is the game's own name for a keyboard
+   key (`q`, `f6`, `numpad 1`, `page up`, `left ctrl` -- what the game's
+   `Keyboard.button_name` gives), `mouse 3` for the middle mouse button,
+   `mouse 4` / `mouse 5` for the side ones, or empty for none. The player
+   clicks the setting and presses the key; a key two of the mod's settings
+   share is pointed out.
+   `"peek": true` on an option asks the window to hide all but that
+   option's control while it changes, so the player sees the game take it:
+   for settings whose effect is to be looked at (sizes, colours, positions),
+   not for ones read off a menu. The player can turn this off.
 
 2. While the game runs, read `<name>_settings.txt` every second or so and
    apply any value that changed -- only a text that ends with the line
@@ -167,14 +182,18 @@ MIT -- see `LICENSE`.
 Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹里之后出现的设置清单会
 自动载入；“更改文件夹”可以指向别的文件夹，并会记住。
 
+按键设置：点一下再按下想要的键（也可以是鼠标中键或侧键）；Esc 取消，叉号清除。
+
 左侧选分组，搜索框可以跨分组找设置；改过的设置旁有橡皮擦，点它恢复默认；底栏可以撤销上一步、
 恢复本组默认或整个 Mod 默认。滑条的数值也可以直接输入，或用方向键、旁边的小箭头逐档调整。
 
 在 Windows 11（22H2 及以后）上，窗口的底色是亚克力：后面的画面会模糊地透出来。
-改动设置时，除了正在改的那个控件，整个窗口会暂时变成全透明；游戏用无边框窗口模式时，
-就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，或松开滑条后，窗口恢复原样。
+改动模组标注了需要的设置（比如大小、颜色、位置）时，除了正在改的那个控件，整个窗口会暂时
+变成全透明；游戏用无边框窗口模式时，就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，
+或松开滑条后，窗口恢复原样。
 
-窗口第一次打开时跟随 Windows 的语言（中文或英文）；用页头的按钮切换后，下次打开会沿用上次的选择。
+页头的“设置”打开窗口自己的设置：语言（第一次跟随 Windows，之后沿用上次的选择）、设置列表所在
+文件夹、上面说的隐藏窗口（默认开启），以及本仓库的地址。
 
 如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
 
@@ -187,8 +206,14 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 > 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
 > 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
 
-设置的说明可以分多行：在文字里写 `
-` 换行。
+设置的说明可以分多行：在文字里写 `\n` 换行。
+
+`type` 为 `key` 的设置是一个按键：值是游戏自己的键盘按键名（`q`、`f6`、`numpad 1`、`page up`、`left ctrl`，
+即游戏 `Keyboard.button_name` 给出的名字），鼠标中键为 `mouse 3`，侧键为 `mouse 4` / `mouse 5`，空值表示未设置。
+玩家点一下这项设置再按下按键即可；同一个模组里两项设置用了同一个键时，窗口会提示。
+
+给设置项加上 `"peek": true`，改动它时窗口会只留下它的控件，玩家能直接看到游戏里的效果。
+适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
 
 ### 构建
 

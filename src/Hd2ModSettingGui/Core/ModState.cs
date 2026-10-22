@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Hd2ModSettingGui.Core
 {
@@ -15,16 +17,47 @@ namespace Hd2ModSettingGui.Core
         readonly List<Dictionary<string, object>> history = new List<Dictionary<string, object>>();
         public DateTime? SavedAt { get; private set; }
         public event Action Changed;
+        string seen;                 // the file's text as last read or written here
 
         public ModState(ModList list)
         {
             List = list;
-            foreach (var kv in Protocol.ReadValues(list.SettingsPath))
+            seen = FileText();
+            Take();
+        }
+
+        void Take()
+        {
+            foreach (var kv in Protocol.ReadValues(List.SettingsPath))
             {
-                var spec = list.Spec(kv.Key);
+                var spec = List.Spec(kv.Key);
                 var v = spec != null ? Protocol.Parse(spec, kv.Value) : null;
                 values[kv.Key] = v ?? kv.Value;
             }
+        }
+
+        string FileText()
+        {
+            try
+            {
+                using (var f = new FileStream(List.SettingsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                using (var r = new StreamReader(f, Encoding.UTF8))
+                    return r.ReadToEnd();
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { return null; }
+        }
+
+        /// <summary>The file changed by someone else (the mod in the game: a key
+        /// it took over from Mod Bindings Menu, a value its own keys changed):
+        /// its values taken, not as a change of ours (no undo). A text without
+        /// its #end is being written: the next look.</summary>
+        public bool TakeOutside()
+        {
+            var text = FileText();
+            if (text == null || text == seen || !text.TrimEnd().EndsWith(Protocol.EndMark)) return false;
+            seen = text;
+            Take();
+            return true;
         }
 
         public object Value(string key)
@@ -36,6 +69,7 @@ namespace Hd2ModSettingGui.Core
             {
                 case Kind.Toggle: return v is bool b ? b : spec.DefaultValue;
                 case Kind.Color: return v is string s && Protocol.IsHex(s) ? s : spec.DefaultValue;
+                case Kind.Key: return v is string k ? k : spec.DefaultValue;
                 default: return v is double d ? d : spec.DefaultValue;
             }
         }
@@ -92,6 +126,7 @@ namespace Hd2ModSettingGui.Core
             foreach (var k in order) all[k] = Value(k);
             foreach (var kv in values) if (!all.ContainsKey(kv.Key)) all[kv.Key] = kv.Value;
             Protocol.WriteValues(List.SettingsPath, all, order);
+            seen = FileText();
             SavedAt = DateTime.Now;
         }
     }

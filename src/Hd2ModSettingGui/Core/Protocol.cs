@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace Hd2ModSettingGui.Core
 {
-    public enum Kind { Toggle, Choice, Slider, Color, Unknown }
+    public enum Kind { Toggle, Choice, Slider, Color, Key, Unknown }
 
     /// <summary>A text in both languages: [en, zh] in the list.</summary>
     public sealed class Pair
@@ -43,6 +43,9 @@ namespace Hd2ModSettingGui.Core
         public Kind Kind;
         public object Default;
         public double Min, Max = 1, Step;
+        /// <summary>The mod asks for the peek on this setting ("peek": true): while it
+        /// changes the window keeps only its control, so the player sees the game.</summary>
+        public bool Peek;
         public Pair Name = new Pair(), Hint = new Pair();
         /// <summary>A choice's names; a colour's presets (Value its #rrggbb).</summary>
         public List<(string Value, Pair Name)> Choices = new List<(string, Pair)>();
@@ -65,6 +68,7 @@ namespace Hd2ModSettingGui.Core
                 {
                     case Kind.Toggle: return Default is bool b && b;
                     case Kind.Color: return Default is string s && Protocol.IsHex(s) ? s.ToLowerInvariant() : "#ffffff";
+                    case Kind.Key: return Protocol.KeyName(Default as string);
                     default: return Protocol.ToDouble(Default) ?? 0.0;
                 }
             }
@@ -128,6 +132,7 @@ namespace Hd2ModSettingGui.Core
                     if (o.TryGetValue("max", out var mx)) spec.Max = Protocol.ToDouble(mx) ?? 1;
                     spec.Step = o.TryGetValue("step", out var st) ? Protocol.ToDouble(st) ?? 0 : 0;
                     if (spec.Step <= 0) spec.Step = (spec.Max - spec.Min) / 100 > 0 ? (spec.Max - spec.Min) / 100 : 1;
+                    spec.Peek = o.TryGetValue("peek", out var pk) && pk is bool pb && pb;
                     var en = o.TryGetValue("en", out var e) ? e as IList : null;
                     var zh = o.TryGetValue("zh", out var z) ? z as IList : null;
                     spec.Name = new Pair { En = Item(en, 0), Zh = Item(zh, 0) };
@@ -185,6 +190,9 @@ namespace Hd2ModSettingGui.Core
 
         public static bool IsHex(string s) => s != null && Hex.IsMatch(s);
 
+        /// <summary>A key setting's value: the key's name, lower case; "" not set.</summary>
+        public static string KeyName(string s) => (s ?? "").Trim().ToLowerInvariant();
+
         public static Kind KindOf(string t)
         {
             switch (t)
@@ -193,6 +201,7 @@ namespace Hd2ModSettingGui.Core
                 case "choice": return Kind.Choice;
                 case "slider": return Kind.Slider;
                 case "color": return Kind.Color;
+                case "key": return Kind.Key;
                 default: return Kind.Unknown;
             }
         }
@@ -289,6 +298,7 @@ namespace Hd2ModSettingGui.Core
             {
                 case Kind.Toggle: return raw == "true";
                 case Kind.Color: return IsHex(raw) ? raw.ToLowerInvariant() : null;
+                case Kind.Key: return KeyName(raw);
                 default: return ToDouble(raw);
             }
         }

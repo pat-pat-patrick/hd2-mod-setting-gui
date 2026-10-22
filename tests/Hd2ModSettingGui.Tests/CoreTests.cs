@@ -116,6 +116,23 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void The_peek_only_where_the_mod_asks_for_it()
+        {
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"settings\":\"demo_settings.txt\",\"options\":[" +
+                    "{\"key\":\"size\",\"type\":\"slider\",\"min\":0,\"max\":1,\"step\":0.1,\"default\":0.5,\"peek\":true}," +
+                    "{\"key\":\"glow\",\"type\":\"toggle\",\"default\":true}," +
+                    "{\"key\":\"odd\",\"type\":\"toggle\",\"default\":true,\"peek\":\"yes\"}]}");
+                var m = ModList.Load(path);
+                Assert.True(m.Spec("size").Peek);
+                Assert.False(m.Spec("glow").Peek);
+                Assert.False(m.Spec("odd").Peek);        // only a real true
+            }
+        }
+
+        [Fact]
         public void Colours_only_as_hex()
         {
             var spec = new OptionSpec { Kind = Kind.Color, Default = "#5EE7FF" };
@@ -172,7 +189,8 @@ namespace Hd2ModSettingGui.Tests
                 Assert.True(m.Options.Count >= 60);
                 Assert.Equal(f.Settings, m.SettingsPath);
                 Assert.All(m.Pages.SelectMany(p => p.Keys), k => Assert.NotNull(m.Spec(k)));
-                Assert.Equal(new[] { Kind.Toggle, Kind.Choice, Kind.Slider }, m.Options.Select(o => o.Kind).Distinct().OrderBy(k => k).ToArray());
+                Assert.Equal(new[] { Kind.Toggle, Kind.Choice, Kind.Slider, Kind.Key }, m.Options.Select(o => o.Kind).Distinct().OrderBy(k => k).ToArray());
+                Assert.Equal("equal", m.Spec("key_glow_up").DefaultValue);   // (1.129.0) its keys, by the game's names
                 var size = m.Spec("size");
                 Assert.Equal((0.2, 1.0, 0.05), (size.Min, size.Max, size.Step));
                 Assert.Equal("宝蓝", m.Spec("palette").Choices[1].Name.Zh);
@@ -223,6 +241,7 @@ namespace Hd2ModSettingGui.Tests
                 foreach (var o in s.List.Options)
                 {
                     if (o.Kind == Kind.Toggle) Assert.Contains(back[o.Key], new[] { "true", "false" });
+                    else if (o.Kind == Kind.Key) Assert.Equal(o.DefaultValue, back[o.Key]);
                     else double.Parse(back[o.Key], System.Globalization.CultureInfo.InvariantCulture);
                 }
                 Assert.Equal("0.55", back["size"]);

@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -36,9 +37,12 @@ namespace Hd2ModSettingGui
         Button copyBtn;
         // the acrylic (Windows 11), and the peek (see Peek)
         bool acrylic;
+        bool peekOn = true;          // the window's setting (config.json "peek"); a setting peeks only when its mod asks too
+        bool settingsOpen;
         readonly Dictionary<string, FrameworkElement> controlOf = new Dictionary<string, FrameworkElement>();
         readonly DispatcherTimer peekEnd = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         FrameworkElement peekOf;
+        readonly Dictionary<string, Action> keyPaint = new Dictionary<string, Action>();   // the key rows, painted again when any key changes
 
         public MainWindow()
         {
@@ -48,6 +52,7 @@ namespace Hd2ModSettingGui
             string Arg(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
             // the language: --lang (tests), else the one chosen last, else Windows's
             var lastLang = Environs.LoadConfig().TryGetValue("lang", out var lg) ? lg as string : null;
+            peekOn = !(Environs.LoadConfig().TryGetValue("peek", out var pk) && pk is bool pb && !pb);
             Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
             folder = Arg("--folder");
             if (folder == null)
@@ -93,14 +98,24 @@ namespace Hd2ModSettingGui
         {
             Title = Texts.Get("window");
             TitleText.Text = Texts.Get("title");
-            SummaryText.Text = mods.Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", mods.Count);
-            LangBtn.Content = Texts.Get("lang");
+            // the window's own version first (the user, 10-22), then the mods found
+            var v = typeof(MainWindow).Assembly.GetName().Version;
+            SummaryText.Text = "v" + v.Major + "." + v.Minor + "." + v.Build + " · " +
+                               (mods.Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", mods.Count));
+            SettingsBtn.Content = Texts.Get(settingsOpen ? "back" : "settings");
             MinBtn.ToolTip = Texts.Get("minimize");
             CloseBtn.ToolTip = Texts.Get("close");
             UndoBtn.Content = Texts.Get("undo");
             ResetModBtn.Content = Texts.Get("reset_mod");
             rows.Clear();
-            if (state == null)
+            controlOf.Clear();
+            keyPaint.Clear();
+            if (settingsOpen)
+            {
+                Footer.Visibility = Visibility.Collapsed;
+                Body.Content = BuildSettings();
+            }
+            else if (state == null)
             {
                 Footer.Visibility = Visibility.Collapsed;
                 Body.Content = BuildEmpty();
@@ -429,6 +444,9 @@ namespace Hd2ModSettingGui
                 case Kind.Color:
                     control = ColorControl(key, spec, body, out show);
                     break;
+                case Kind.Key:
+                    control = KeyControl(key, body, out show);
+                    break;
                 default:
                     control = Text(Convert.ToString(state.Value(key), CultureInfo.InvariantCulture), fg: B("Muted"));
                     break;
@@ -636,6 +654,67 @@ namespace Hd2ModSettingGui
             return sp;
         }
 
+        // a key setting (the user, 10-23): the key shown; clicked, the next key
+        // or middle / side mouse button pressed is taken (Esc, or leaving it,
+        // keeps the one it had); the cross unbinds it. A key another of this
+        // mod's key settings has too is said under it.
+        FrameworkElement KeyControl(string key, StackPanel below, out Action<object> show)
+        {
+            var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Application.Current.Resources["Mono"] };
+            var clear = new Button { Content = "×", Style = S("Ghost") };
+            clear.MinWidth = 40;
+            clear.Margin = new Thickness(6, 0, 0, 0);
+            clear.ToolTip = Texts.Get("unbind");
+            var same = Text("", fg: B("Yellow"), size: 12);
+            same.Margin = new Thickness(0, 4, 0, 0);
+            same.Visibility = Visibility.Collapsed;
+            below.Children.Add(same);
+            string cur = "";
+            bool waiting = false;
+            void Paint()
+            {
+                btn.Content = waiting ? Texts.Get("press_key") : cur == "" ? Texts.Get("no_key") : KeyNames.Label(cur);
+                btn.BorderBrush = waiting ? B("Yellow") : B("Grid");
+                clear.Visibility = cur == "" ? Visibility.Hidden : Visibility.Visible;
+                var other = cur == "" ? null : state.List.Options.FirstOrDefault(o => o.Key != key && o.Kind == Kind.Key && (string)state.Value(o.Key) == cur);
+                same.Text = other == null ? "" : Texts.Get("key_same", other.Name.In(Texts.Zh));
+                same.Visibility = other == null ? Visibility.Collapsed : Visibility.Visible;
+            }
+            void Take(string name)
+            {
+                waiting = false;
+                cur = name;
+                Change(key, name, fromWidget: true);
+                Paint();
+            }
+            btn.Click += (s, e) => { waiting = true; Paint(); btn.Focus(); };
+            btn.PreviewKeyDown += (s, e) =>
+            {
+                if (!waiting) return;
+                e.Handled = true;
+                var k = e.Key == Key.System ? e.SystemKey : e.Key;
+                if (k == Key.Escape) { waiting = false; Paint(); return; }
+                var name = KeyNames.FromKey(k);
+                if (name != null) Take(name);
+            };
+            btn.PreviewMouseDown += (s, e) =>
+            {
+                if (!waiting) return;
+                var name = KeyNames.FromMouse(e.ChangedButton);
+                if (name == null) return;
+                e.Handled = true;
+                Take(name);
+            };
+            btn.LostKeyboardFocus += (s, e) => { if (waiting) { waiting = false; Paint(); } };
+            clear.Click += (s, e) => Take("");
+            keyPaint[key] = Paint;
+            show = v => { cur = (string)v; waiting = false; Paint(); };
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(btn);
+            sp.Children.Add(clear);
+            return sp;
+        }
+
         static Border Swatch(string hex, string tip) => new Border
         {
             Width = 36, Height = 36, Margin = new Thickness(3, 0, 3, 0), BorderThickness = new Thickness(2),
@@ -670,7 +749,8 @@ namespace Hd2ModSettingGui
         {
             state.Set(key, v);
             if (!fromWidget && rows.TryGetValue(key, out var r)) r.Show?.Invoke(v);
-            if (controlOf.TryGetValue(key, out var c)) Peek(c);
+            if (peekOn && state.List.Spec(key)?.Peek == true && controlOf.TryGetValue(key, out var c)) Peek(c);
+            foreach (var p in keyPaint.Values) p();
             PaintReset(key);
             RenderGroups();
             RenderMods();
@@ -713,13 +793,95 @@ namespace Hd2ModSettingGui
             Refresh();
         }
 
-        void Lang_Click(object sender, RoutedEventArgs e)
+        void Settings_Click(object sender, RoutedEventArgs e)
         {
-            Texts.Zh = !Texts.Zh;
+            settingsOpen = !settingsOpen;
+            Build();
+        }
+
+        void SetLanguage(bool zh)
+        {
+            if (Texts.Zh == zh) return;
+            Texts.Zh = zh;
             var cfg = Environs.LoadConfig();
-            cfg["lang"] = Texts.Zh ? "zh" : "en";
+            cfg["lang"] = zh ? "zh" : "en";
             Environs.SaveConfig(cfg);
             Build();
+        }
+
+        // ---------------------------------------------------------------- the window's settings
+        // (the user, 10-23: a page of its own for the language, the folder,
+        // the peek, and the repository's address)
+        const string Repo = "https://github.com/pat-pat-patrick/hd2-mod-setting-gui";
+
+        FrameworkElement BuildSettings()
+        {
+            var col = new StackPanel { MaxWidth = 720, Margin = new Thickness(24, 40, 24, 24), HorizontalAlignment = HorizontalAlignment.Stretch };
+            var scroll = new ScrollViewer { Content = col, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
+            col.Children.Add(Text(Texts.Get("settings_title"), size: 28, weight: FontWeights.Bold));
+
+            // the language
+            col.Children.Add(Spaced(Text(Texts.Get("language"), "Label"), 32, 8));
+            var seg = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var (zh, name) in new[] { (true, "中文"), (false, "English") })
+            {
+                var rb = new RadioButton { Style = S("Segment"), Content = name, GroupName = "lang", IsChecked = Texts.Zh == zh };
+                rb.Checked += (s, e) => SetLanguage(zh);
+                seg.Children.Add(rb);
+            }
+            col.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = seg, HorizontalAlignment = HorizontalAlignment.Left });
+
+            // the folder
+            col.Children.Add(Spaced(Text(Texts.Get("folder"), "Label"), 32, 8));
+            var row = new DockPanel();
+            var change = Ghost(Texts.Get("change_folder"), (s, e) => ChangeFolder());
+            copyBtn = Ghost(Texts.Get("copy"), (s, e) => CopyPath());
+            var open = Ghost(Texts.Get("open_folder"), (s, e) => OpenFolder());
+            foreach (var b in new[] { change, open, copyBtn })
+            {
+                b.Margin = new Thickness(8, 0, 0, 0);
+                DockPanel.SetDock(b, Dock.Right);
+                row.Children.Add(b);
+            }
+            row.Children.Add(new Border
+            {
+                Background = B("Ground700"), BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 9, 12, 9),
+                Child = new TextBlock { Text = folder, FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13, TextWrapping = TextWrapping.Wrap },
+            });
+            col.Children.Add(row);
+
+            // the peek
+            col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));
+            var line = new DockPanel();
+            var sw = new CheckBox { Style = S("Switch"), IsChecked = peekOn, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 2, 0, 0) };
+            sw.Checked += (s, e) => SetPeek(true);
+            sw.Unchecked += (s, e) => SetPeek(false);
+            DockPanel.SetDock(sw, Dock.Right);
+            line.Children.Add(sw);
+            line.Children.Add(Text(Texts.Get("peek_d"), "Hint"));
+            col.Children.Add(line);
+
+            // about
+            col.Children.Add(Spaced(Text(Texts.Get("about"), "Label"), 32, 8));
+            var v = typeof(MainWindow).Assembly.GetName().Version;
+            col.Children.Add(Text("HD2 Mod Setting GUI v" + v.Major + "." + v.Minor + "." + v.Build, size: 14, weight: FontWeights.SemiBold));
+            col.Children.Add(Spaced(Text(Texts.Get("about_d"), "Hint"), 4, 4));
+            var link = new Hyperlink(new Run(Repo)) { NavigateUri = new Uri(Repo), Foreground = B("Blue") };
+            link.RequestNavigate += (s, e) =>
+            {
+                try { Process.Start(new ProcessStartInfo { FileName = Repo, UseShellExecute = true }); } catch (Exception) { }
+                e.Handled = true;
+            };
+            col.Children.Add(new TextBlock(link) { FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13 });
+            return scroll;
+        }
+
+        void SetPeek(bool on)
+        {
+            peekOn = on;
+            var cfg = Environs.LoadConfig();
+            cfg["peek"] = on;
+            Environs.SaveConfig(cfg);
         }
 
         // ---------------------------------------------------------------- the watch and the status
@@ -729,6 +891,18 @@ namespace Hd2ModSettingGui
             // a list that appears (or goes) is loaded: the same ones leave all as it is
             var found = Protocol.FindMods(folder).Select(m => m.Name).ToList();
             if (!found.SequenceEqual(mods.Select(m => m.Name))) Load();
+            // the file changed in the game (and none of ours waits to be written): shown, not written back
+            else if (state != null && !writeTimer.IsEnabled && state.TakeOutside())
+            {
+                foreach (var kv in rows)
+                {
+                    kv.Value.Show?.Invoke(state.Value(kv.Key));
+                    PaintReset(kv.Key);
+                }
+                foreach (var p in keyPaint.Values) p();
+                RenderGroups();
+                RenderMods();
+            }
             PaintStatus();
         }
 
