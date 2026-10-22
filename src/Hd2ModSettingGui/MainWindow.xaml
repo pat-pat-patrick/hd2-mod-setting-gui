@@ -1,0 +1,70 @@
+<Window x:Class="Hd2ModSettingGui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HD2 Mod Setting GUI" Width="1180" Height="780" MinWidth="860" MinHeight="560"
+        Background="{StaticResource Ground900}" Foreground="{StaticResource Ink}" FontFamily="{StaticResource Ui}"
+        FontSize="14" WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" Icon="app.ico">
+  <!-- the system's frame kept, its caption drawn by the window (the user:
+       "no system title bar"; and the system's animations, snapping and
+       shadow, which a window without a frame loses) -->
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="72" ResizeBorderThickness="6" GlassFrameThickness="0,0,0,1"
+                  CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+
+  <Border x:Name="Frame" BorderBrush="{StaticResource Grid}" BorderThickness="1">
+    <DockPanel>
+      <!-- the header: the title bar -->
+      <Border DockPanel.Dock="Top" Background="{StaticResource Ground700}" BorderBrush="{StaticResource Grid}"
+              BorderThickness="0,0,0,1" Height="72">
+        <DockPanel LastChildFill="False">
+          <Canvas DockPanel.Dock="Left" Width="32" Height="32" Margin="24,0,12,0" VerticalAlignment="Center">
+            <Rectangle Canvas.Left="1" Canvas.Top="9" Width="30" Height="14" Fill="{StaticResource Yellow}"/>
+            <Path Data="M6,23 L14,9 M14,23 L22,9 M22,23 L30,9" Stroke="{StaticResource TapeInk}" StrokeThickness="3"/>
+          </Canvas>
+          <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+            <TextBlock x:Name="TitleText" FontSize="22" FontWeight="Bold" Text="HD2 MOD 控制台"/>
+            <TextBlock x:Name="SummaryText" Style="{StaticResource MonoText}" Text="0 MOD"/>
+          </StackPanel>
+          <!-- the window's own buttons, right to left -->
+          <Button x:Name="CloseBtn" DockPanel.Dock="Right" Style="{StaticResource CaptionClose}" Click="Close_Click">
+            <Path Data="M0,0 L10,10 M10,0 L0,10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"/>
+          </Button>
+          <Button x:Name="MaxBtn" DockPanel.Dock="Right" Style="{StaticResource Caption}" Click="Max_Click">
+            <Path x:Name="MaxGlyph" Data="M0.5,0.5 H9.5 V9.5 H0.5 Z" Stroke="{StaticResource Ink}" StrokeThickness="1"/>
+          </Button>
+          <Button x:Name="MinBtn" DockPanel.Dock="Right" Style="{StaticResource Caption}" Click="Min_Click">
+            <Path Data="M0,0.5 H10" Stroke="{StaticResource Ink}" StrokeThickness="1"/>
+          </Button>
+          <Button x:Name="LangBtn" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Margin="0,0,24,0" MinHeight="34"
+                  VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Click="Lang_Click" Content="English"/>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+            <Ellipse x:Name="ConnDot" Width="8" Height="8" Fill="{StaticResource Muted}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="ConnText" Style="{StaticResource MonoText}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- the footer: the status, undo and resets -->
+      <Border x:Name="Footer" DockPanel.Dock="Bottom" Background="{StaticResource Ground700}" BorderBrush="{StaticResource Grid}"
+              BorderThickness="0,1,0,0">
+        <DockPanel Margin="24,10">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="UndoBtn" Style="{StaticResource Ghost}" Click="Undo_Click"/>
+            <Button x:Name="ResetGroupBtn" Style="{StaticResource Ghost}" Margin="8,0,0,0" Click="ResetGroup_Click"/>
+            <Button x:Name="ResetModBtn" Style="{StaticResource Ghost}" Margin="8,0,0,0" Click="ResetMod_Click"/>
+          </StackPanel>
+          <!-- the status: what the buttons leave, cut with an ellipsis (its whole text in the tooltip) -->
+          <DockPanel VerticalAlignment="Center" Margin="0,0,16,0">
+            <Ellipse x:Name="FootDot" DockPanel.Dock="Left" Width="8" Height="8" Fill="{StaticResource Muted}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="FootText" Style="{StaticResource MonoText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+          </DockPanel>
+        </DockPanel>
+      </Border>
+
+      <ContentControl x:Name="Body" Focusable="False"/>
+    </DockPanel>
+  </Border>
+</Window>

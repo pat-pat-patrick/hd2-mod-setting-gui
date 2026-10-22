@@ -1,0 +1,157 @@
+# HD2 Mod Setting GUI
+
+A small window, outside the game, for editing a Helldivers 2 mod's settings.
+A mod that supports it applies each change in the game within a second, so
+you see the effect while you play.
+
+Supported mods: **Super Holo Kit** 1.125.1 or later.
+
+One file of about 100 KB. It runs on the .NET Framework 4.8 that Windows 10
+(1903 or later) and Windows 11 already have: nothing else to install.
+
+[中文说明在下面](#中文)
+
+## Use
+
+1. Install a supported mod, start the game once (the mod writes its list of
+   settings at launch).
+2. Run `HD2 Mod Setting GUI.exe` (from this repository's Releases page).
+3. Pick a group on the left, change a setting. The window writes it at
+   once; the status line at the bottom says when the game has applied it.
+   With the game closed, the change is kept and applies at the next launch.
+
+Its header is its title bar: drag it to move the window, double-click it to
+maximize; Windows' own snapping, animations and shadow are kept, and on
+Windows 11 hovering the maximize button offers the snap layouts. A list
+that appears in the folder later is loaded by itself; "Change folder" points
+the window elsewhere and remembers it.
+
+Search finds a setting in any group. A changed setting shows a reset
+arrow; the footer undoes the last change, resets the group shown or the
+whole mod.
+
+## What it touches
+
+Two text files in the game's own settings folder,
+`%APPDATA%\Arrowhead\Helldivers2`, and nothing else:
+
+- `<mod>_options.json` -- the mod's list of settings, read only;
+- `<mod>_settings.txt` -- the values, `key=value` lines, written whole in
+  one write, its last line `#end` (a mod that catches it half written sees
+  no `#end` and reads it again a moment later).
+
+It also reads the end of `<mod>.log` for the status line, and the names in
+Windows' list of running programs to see whether `helldivers2.exe` is
+running. It does not open the game's process, read its memory, inject
+anything, or go on the network.
+
+If the game's Mod Options Menu holds a setting, that setting is set there;
+the window shows it and says so.
+
+## For mod authors
+
+A mod takes part with two things:
+
+1. At launch, write `<name>_options.json` into the folder above (only when
+   it differs from what is there):
+
+   ```json
+   {
+     "title": "My Mod",
+     "version": "my-mod-1.2.0",
+     "settings": "my_mod_settings.txt",
+     "pages": [ { "en": "General", "zh": "通用", "keys": ["size", "glow"] } ],
+     "options": [
+       { "key": "size", "type": "slider", "min": 0.2, "max": 1, "step": 0.05, "default": 0.8,
+         "en": ["Size", "Overall size."], "zh": ["大小", "整体大小。"] },
+       { "key": "glow", "type": "toggle", "default": true, "en": ["Glow", ""], "zh": ["辉光", ""] },
+       { "key": "palette", "type": "choice", "default": 1,
+         "choices": [["Full colour", "彩色"], ["Blue", "蓝"]], "en": ["Colours", ""], "zh": ["配色", ""] },
+       { "key": "ring", "type": "color", "default": "#5ee7ff",
+         "choices": [["#5ee7ff", "Cyan", "青"], ["#ffd23f", "Yellow", "黄"]], "en": ["Ring colour", ""], "zh": ["圆环颜色", ""] }
+     ],
+     "menu_owned": []
+   }
+   ```
+
+   `type` is `toggle` (true / false), `choice` (1 .. the number of choices),
+   `slider` (a number from `min` to `max` by `step`) or `color` (`#rrggbb`;
+   its `choices` are presets, `[hex, en, zh]`, and any other colour can be
+   picked or typed). `pages` lists the
+   keys shown, page by page; without it every option is on one page.
+   `menu_owned` lists keys another menu holds (shown, not editable).
+
+2. While the game runs, read `<name>_settings.txt` every second or so and
+   apply any value that changed -- only a text that ends with the line
+   `#end`. Keep the file open and read it again from its start (the window
+   writes it in place), rather than opening it each time. Optionally log a line containing
+   `settings window: applied` to `<name>.log` when you do; the window's
+   status line looks for it.
+
+## Build
+
+C# and WPF on .NET Framework 4.8, no library beyond it (the tests use
+xUnit). Build with the .NET SDK 8 or later:
+
+```
+build.bat
+```
+
+It runs the tests (`tests\Hd2ModSettingGui.Tests`), then writes
+`release\HD2 Mod Setting GUI.exe`. `src\Hd2ModSettingGui\Core` holds the
+files' protocol and has no window code in it; the tests run against it with
+the list Super Holo Kit really writes (`tests\fixtures`).
+
+## Licence
+
+MIT -- see `LICENSE`.
+
+---
+
+## 中文
+
+一个游戏外的小窗口，用来修改 Helldivers 2 模组的设置。支持本窗口的模组会在
+一秒内把改动应用到游戏里，边玩边调就能看到效果。
+
+支持的模组：**Super Holo Kit** 1.125.1 及以后。
+
+只有一个约 100 KB 的文件，用的是 Windows 10（1903 及以后）和 Windows 11
+自带的 .NET Framework 4.8，不需要另外安装任何东西。
+
+### 使用
+
+1. 安装支持的模组，进一次游戏（模组会在启动时写出自己的设置清单）。
+2. 运行 `HD2 Mod Setting GUI.exe`（在本仓库的 Releases 页下载）。
+3. 修改设置。窗口会立即写入；底部状态栏会显示游戏何时已应用。游戏没开时，
+   改动会保留，下次进游戏生效。
+
+### 它会碰什么
+
+只碰游戏自己的设置文件夹 `%APPDATA%\Arrowhead\Helldivers2` 里的两个文本文件：
+
+- `<模组>_options.json`：模组的设置清单，只读；
+- `<模组>_settings.txt`：设置值，每行 `key=value`，一次整份写入，最后一行是
+  `#end`；模组如果正好读到写了一半的内容，没有 `#end` 就会等下一次再读。
+
+另外会读 `<模组>.log` 的末尾来显示状态，并查看 Windows 正在运行的程序名单里
+有没有 `helldivers2.exe`。它不打开游戏进程、不读游戏内存、不注入任何东西，
+也不联网。
+
+页头就是标题栏：拖动它移动窗口，双击最大化；Windows 自带的贴靠、动画和阴影都保留，
+Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹里之后出现的设置清单会
+自动载入；“更改文件夹”可以指向别的文件夹，并会记住。
+
+左侧选分组，搜索框可以跨分组找设置；改过的设置旁有恢复箭头；底栏可以撤销上一步、
+恢复本组默认或整个 Mod 默认。
+
+如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
+
+### 构建
+
+C# + WPF，基于 .NET Framework 4.8，除此之外不依赖任何库（测试用 xUnit）。
+装好 .NET SDK 8 或更新版本后运行 `build.bat`：先跑测试，再生成
+`release\HD2 Mod Setting GUI.exe`。
+
+### 许可
+
+MIT，见 `LICENSE`。
