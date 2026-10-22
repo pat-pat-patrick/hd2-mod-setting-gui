@@ -92,12 +92,50 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_description_keeps_its_line_breaks()
+        {
+            Assert.Equal("Colours.\nFull colour: each its own.", Json.Parse("\"Colours.\\nFull colour: each its own.\""));
+        }
+
+        [Fact]
+        public void A_log_named_by_version_found_and_its_untimed_line_given_the_log_time()
+        {
+            using (var f = new Folder(false))
+            {
+                var list = new ModList { Name = "wheres_my_shit", Folder = f.Dir };
+                Assert.Equal(Path.Combine(f.Dir, "wheres_my_shit.log"), list.LogPath);      // none yet: the plain name
+                var old = Path.Combine(f.Dir, "wheres_my_shit_v0.22.3.log");
+                var log = Path.Combine(f.Dir, "wheres_my_shit_v0.23.0.log");
+                File.WriteAllText(old, "");
+                File.WriteAllText(log, "sett settings window: applied field_mode=1\n");
+                File.SetLastWriteTime(old, new DateTime(2026, 10, 1, 9, 0, 0));
+                File.SetLastWriteTime(log, new DateTime(2026, 10, 22, 17, 30, 15));
+                Assert.Equal(log, list.LogPath);
+                Assert.Equal("17:30:15", Protocol.LastApplied(log));
+            }
+        }
+
+        [Fact]
         public void Colours_only_as_hex()
         {
             var spec = new OptionSpec { Kind = Kind.Color, Default = "#5EE7FF" };
             Assert.Equal("#abcdef", Protocol.Parse(spec, "#ABCDEF"));
             Assert.Null(Protocol.Parse(spec, "blue"));
             Assert.Equal("#5ee7ff", spec.DefaultValue);
+        }
+
+        [Fact]
+        public void A_typed_number_goes_to_the_nearest_step_in_range()
+        {
+            var spec = new OptionSpec { Kind = Kind.Slider, Min = 0.2, Max = 1.0, Step = 0.05 };
+            Assert.Equal(2, spec.Digits);
+            Assert.Equal(0.8, spec.Snap(0.81));
+            Assert.Equal(0.85, spec.Snap(0.8 + 0.05));       // a step up from a float sum stays on the step
+            Assert.Equal(1.0, spec.Snap(7));
+            Assert.Equal(0.2, spec.Snap(-3));
+            var whole = new OptionSpec { Kind = Kind.Slider, Min = 1, Max = 6, Step = 1 };
+            Assert.Equal(0, whole.Digits);
+            Assert.Equal(4.0, whole.Snap(3.6));
         }
     }
 

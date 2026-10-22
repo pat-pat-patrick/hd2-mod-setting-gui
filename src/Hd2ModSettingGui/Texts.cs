@@ -10,8 +10,9 @@ namespace Hd2ModSettingGui
         static readonly Dictionary<string, (string En, string Zh)> T = new Dictionary<string, (string, string)>
         {
             ["window"] = ("HD2 Mod Setting GUI", "HD2 Mod 控制台"),
-            ["title"] = ("HD2 MOD CONSOLE", "HD2 MOD 控制台"),
-            ["summary"] = ("{0} MOD(S)", "{0} 个 MOD"),
+            ["title"] = ("HD2 Mod Console", "HD2 MOD 控制台"),
+            ["summary"] = ("{0} mods", "{0} 个 MOD"),
+            ["summary_one"] = ("1 mod", "1 个 MOD"),
             ["running"] = ("Game running · changes apply at once", "已连接游戏 · 修改即时生效"),
             ["not_running"] = ("Game not running · changes apply at the next launch", "游戏未运行 · 下次进游戏生效"),
             ["waiting_list"] = ("Waiting for the game to write a settings list", "等待游戏写入设置列表"),
@@ -20,12 +21,12 @@ namespace Hd2ModSettingGui
             ["maximize"] = ("Maximize", "最大化"),
             ["restore"] = ("Restore", "向下还原"),
             ["close"] = ("Close", "关闭"),
-            ["filter"] = ("FILTER MODS", "筛选 MOD"),
+            ["filter"] = ("Filter mods", "筛选 MOD"),
             ["mod_ph"] = ("Mod name", "Mod 名称"),
-            ["installed"] = ("INSTALLED MODS", "已安装的 MOD"),
+            ["installed"] = ("Installed mods", "已安装的 MOD"),
             ["n_changed"] = ("{0} changed", "{0} 项改动"),
-            ["all_default"] = ("defaults", "全部默认"),
-            ["groups"] = ("SETTING GROUPS", "设置分组"),
+            ["all_default"] = ("All defaults", "全部默认"),
+            ["groups"] = ("Setting groups", "设置分组"),
             ["search"] = ("Search settings", "搜索设置"),
             ["results"] = ("Search results", "搜索结果"),
             ["matches"] = ("{0} matching", "{0} 项匹配"),
@@ -51,11 +52,11 @@ namespace Hd2ModSettingGui
             ["empty_body"] = ("A mod that supports this window writes its settings list into the folder below when the game starts. "
                               + "It is still empty: the game has not started with such a mod yet.",
                               "支持本窗口的 mod 会在游戏启动时，把自己的设置列表写到下面这个文件夹。这里还是空的，说明游戏还没带着这类 mod 启动过。"),
-            ["folder"] = ("SETTINGS LIST FOLDER", "设置列表所在文件夹"),
+            ["folder"] = ("Settings list folder", "设置列表所在文件夹"),
             ["copy"] = ("Copy path", "复制路径"),
             ["copied"] = ("Copied", "已复制"),
             ["open_folder"] = ("Open folder", "打开文件夹"),
-            ["how"] = ("HOW TO MAKE SETTINGS APPEAR", "怎么让设置出现"),
+            ["how"] = ("How to make settings appear", "怎么让设置出现"),
             ["s1"] = ("Install a supported mod", "安装支持的 mod"),
             ["s1d"] = ("e.g. Super Holo HUD 1.127.0 or later", "例如 Super Holo HUD 1.127.0 或更高版本"),
             ["s2"] = ("Start the game once", "启动一次游戏"),
@@ -65,7 +66,7 @@ namespace Hd2ModSettingGui
             ["watching"] = ("Watching this folder; new settings lists load automatically", "正在监视此文件夹，出现列表会自动载入"),
             ["rescanned"] = ("Scanned again: nothing yet · still watching", "已重新扫描，仍未找到 · 继续监视此文件夹"),
             ["change_folder"] = ("Change folder", "更改文件夹"),
-            ["rescan"] = ("Scan again now", "立即重新扫描"),
+            ["rescan"] = ("Scan again", "立即重新扫描"),
         };
 
         public static string Get(string key) => T.TryGetValue(key, out var p) ? (Zh ? p.Zh : p.En) : key;

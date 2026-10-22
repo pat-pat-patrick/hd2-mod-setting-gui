@@ -34,13 +34,21 @@ namespace Hd2ModSettingGui
         StackPanel navList, groupList, panel;
         TextBlock scanText;
         Button copyBtn;
+        // the acrylic (Windows 11), and the peek (see Peek)
+        bool acrylic;
+        readonly Dictionary<string, FrameworkElement> controlOf = new Dictionary<string, FrameworkElement>();
+        readonly DispatcherTimer peekEnd = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        FrameworkElement peekOf;
 
         public MainWindow()
         {
             InitializeComponent();
+            peekEnd.Tick += (s, e) => Unpeek();
             var args = Environment.GetCommandLineArgs();
             string Arg(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
-            Texts.Zh = Arg("--lang") is string l ? l == "zh" : Environs.UiChinese;
+            // the language: --lang (tests), else the one chosen last, else Windows's
+            var lastLang = Environs.LoadConfig().TryGetValue("lang", out var lg) ? lg as string : null;
+            Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
             folder = Arg("--folder");
             if (folder == null)
             {
@@ -85,7 +93,7 @@ namespace Hd2ModSettingGui
         {
             Title = Texts.Get("window");
             TitleText.Text = Texts.Get("title");
-            SummaryText.Text = Texts.Get("summary", mods.Count);
+            SummaryText.Text = mods.Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", mods.Count);
             LangBtn.Content = Texts.Get("lang");
             MinBtn.ToolTip = Texts.Get("minimize");
             CloseBtn.ToolTip = Texts.Get("close");
@@ -248,7 +256,7 @@ namespace Hd2ModSettingGui
                 {
                     int n = state.ChangedCount;
                     sp.Children.Add(Text(n > 0 ? Texts.Get("n_changed", n) : Texts.Get("all_default"), "MonoText",
-                                         n > 0 ? B("Cyan") : B("Muted"), 11));
+                                         n > 0 ? B("Blue") : B("Muted"), 11));
                 }
                 else sp.Children.Add(Text(name, "MonoText", size: 11));
                 box.Child = sp;
@@ -288,7 +296,7 @@ namespace Hd2ModSettingGui
                 var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 sp.Children.Add(Text(name, fg: on ? B("Yellow") : B("Ink"), size: 14, weight: FontWeights.SemiBold));
                 if (keys.Any(k => !state.List.MenuOwned.Contains(k) && state.IsChanged(k)))
-                    sp.Children.Add(new Ellipse { Width = 6, Height = 6, Fill = B("Cyan"), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+                    sp.Children.Add(new Ellipse { Width = 6, Height = 6, Fill = B("Blue"), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
                 row.Child = sp;
                 int gi = index;
                 row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Name] = gi; query = ""; Build(); };
@@ -342,7 +350,7 @@ namespace Hd2ModSettingGui
         {
             var spec = state.List.Spec(key);
             var body = new StackPanel { Margin = new Thickness(16, 12, 16, 12) };
-            if (group != null) body.Children.Add(Text(group, "MonoText", B("Cyan"), 11));
+            if (group != null) body.Children.Add(Text(group, "MonoText", B("Blue"), 11));
             var line = new DockPanel();
             body.Children.Add(line);
             var reset = ResetIcon(() => Change(key, spec.DefaultValue));
@@ -390,29 +398,31 @@ namespace Hd2ModSettingGui
                 }
                 case Kind.Slider:
                 {
-                    int digits = spec.Step < 1 ? Math.Max(0, -(int)Math.Floor(Math.Log10(spec.Step) + 1e-9)) : 0;
-                    string Fmt(double d) => d.ToString("F" + digits, CultureInfo.InvariantCulture);
                     var sl = new Slider
                     {
                         Style = S("Range"), Minimum = spec.Min, Maximum = spec.Max, TickFrequency = spec.Step,
                         SmallChange = spec.Step, LargeChange = spec.Step, Width = 220, VerticalAlignment = VerticalAlignment.Center,
                     };
-                    var shown = Text("", "MonoText", B("Cyan"), 14);
-                    shown.Width = 64;
-                    shown.TextAlignment = TextAlignment.Right;
-                    shown.VerticalAlignment = VerticalAlignment.Center;
                     bool quiet = false;
+                    var num = NumberBox(spec, v =>
+                    {
+                        quiet = true;
+                        sl.Value = v;
+                        quiet = false;
+                        if (!Equals(state.Value(key), v)) Change(key, v, fromWidget: true);
+                    }, out var shown);
+                    num.Margin = new Thickness(12, 0, 0, 0);
                     sl.ValueChanged += (s, e) =>
                     {
                         if (quiet) return;
-                        var v = Math.Round(spec.Min + Math.Round((sl.Value - spec.Min) / spec.Step) * spec.Step, digits + 2);
-                        shown.Text = Fmt(v);
+                        var v = spec.Snap(sl.Value);
+                        shown(v);
                         if (!Equals(state.Value(key), v)) Change(key, v, fromWidget: true);
                     };
-                    show = v => { quiet = true; sl.Value = (double)v; shown.Text = Fmt((double)v); quiet = false; };
+                    show = v => { quiet = true; sl.Value = (double)v; shown((double)v); quiet = false; };
                     var sp = new StackPanel { Orientation = Orientation.Horizontal };
                     sp.Children.Add(sl);
-                    sp.Children.Add(shown);
+                    sp.Children.Add(num);
                     control = sp;
                     break;
                 }
@@ -423,24 +433,137 @@ namespace Hd2ModSettingGui
                     control = Text(Convert.ToString(state.Value(key), CultureInfo.InvariantCulture), fg: B("Muted"));
                     break;
             }
-            control.Margin = new Thickness(24, 0, 8, 0);
-            DockPanel.SetDock(control, Dock.Right);
-            line.Children.Add(control);
-            line.Children.Add(new TextBlock { Text = spec.Name.In(Texts.Zh), FontSize = 15, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap });
+            control.Margin = new Thickness(0, 0, 8, 0);
+            var both = new NameAndControl();
+            both.Children.Add(new TextBlock { Text = spec.Name.In(Texts.Zh), FontSize = 15, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+            both.Children.Add(control);
+            line.Children.Add(both);
             var hint = spec.Hint.In(Texts.Zh);
             if (hint != "") body.Children.Add(Spaced(Text(hint, "Hint"), 4, 0));
             show?.Invoke(state.Value(key));
             rows[key] = (show, reset);
+            controlOf[key] = control;
             PaintReset(key);
             return new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, last ? 0 : 1), Child = body };
         }
 
-        FrameworkElement ResetIcon(Action click)
+        // a setting's name and its control side by side; the control under the
+        // name when beside it the name would get less than MinName (a choice's
+        // long English labels squeezed the name to a letter a line)
+        sealed class NameAndControl : Panel
         {
-            // the design's reset: a three-quarter turn and its arrowhead
+            const double MinName = 220, Gap = 24, Below = 10;
+            bool stacked;
+
+            protected override Size MeasureOverride(Size avail)
+            {
+                UIElement name = InternalChildren[0], ctl = InternalChildren[1];
+                ctl.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                double cw = ctl.DesiredSize.Width;
+                bool wide = double.IsInfinity(avail.Width);
+                stacked = !wide && avail.Width - cw - Gap < MinName;
+                if (stacked)
+                {
+                    name.Measure(new Size(avail.Width, double.PositiveInfinity));
+                    ctl.Measure(new Size(avail.Width, double.PositiveInfinity));
+                    return new Size(Math.Max(name.DesiredSize.Width, Math.Min(cw, avail.Width)), name.DesiredSize.Height + Below + ctl.DesiredSize.Height);
+                }
+                name.Measure(new Size(wide ? double.PositiveInfinity : avail.Width - cw - Gap, double.PositiveInfinity));
+                return new Size(wide ? name.DesiredSize.Width + Gap + cw : avail.Width, Math.Max(name.DesiredSize.Height, ctl.DesiredSize.Height));
+            }
+
+            protected override Size ArrangeOverride(Size size)
+            {
+                UIElement name = InternalChildren[0], ctl = InternalChildren[1];
+                if (stacked)
+                {
+                    name.Arrange(new Rect(0, 0, size.Width, name.DesiredSize.Height));
+                    ctl.Arrange(new Rect(0, name.DesiredSize.Height + Below, Math.Min(ctl.DesiredSize.Width, size.Width), ctl.DesiredSize.Height));
+                }
+                else
+                {
+                    double cw = ctl.DesiredSize.Width;
+                    name.Arrange(new Rect(0, (size.Height - name.DesiredSize.Height) / 2, Math.Max(0, size.Width - cw - Gap), name.DesiredSize.Height));
+                    ctl.Arrange(new Rect(size.Width - cw, (size.Height - ctl.DesiredSize.Height) / 2, cw, ctl.DesiredSize.Height));
+                }
+                return size;
+            }
+        }
+
+        FrameworkElement NumberBox(OptionSpec spec, Action<double> changed, out Action<double> show)
+        {
+            // a slider's value to type (Enter or leaving the box takes it, Esc
+            // drops it), or to step: Up/Down, the wheel while the box has the
+            // focus, or the two arrows (held, they repeat); out of range or off
+            // a step, the nearest step that is in it
+            double cur = spec.Min;
+            var box = new TextBox
+            {
+                Style = S("Input"), Width = 64, MinHeight = 0, BorderThickness = new Thickness(0), Padding = new Thickness(8, 0, 2, 0),
+                FontFamily = (FontFamily)Application.Current.Resources["Mono"], TextAlignment = TextAlignment.Right,
+            };
+            void Put(double v) { cur = v; box.Text = v.ToString("F" + spec.Digits, CultureInfo.InvariantCulture); }
+            double? Typed() => double.TryParse(box.Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
+                               && !double.IsNaN(d) && !double.IsInfinity(d) ? d : (double?)null;
+            void Take(double v) { v = spec.Snap(v); Put(v); changed(v); }
+            void Step(int n) => Take((Typed() ?? cur) + n * spec.Step);
+            box.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Up) Step(1);
+                else if (e.Key == Key.Down) Step(-1);
+                else if (e.Key == Key.Enter) { Take(Typed() ?? cur); box.SelectAll(); }
+                else if (e.Key == Key.Escape) { Put(cur); box.SelectAll(); }
+                else return;
+                e.Handled = true;
+            };
+            box.PreviewMouseWheel += (s, e) =>
+            {
+                if (!box.IsKeyboardFocusWithin) return;     // scrolling the page past it changes nothing
+                Step(e.Delta > 0 ? 1 : -1);
+                e.Handled = true;
+            };
+            box.GotKeyboardFocus += (s, e) => box.SelectAll();
+            var frame = new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Background = B("Ground700"), Height = 40, VerticalAlignment = VerticalAlignment.Center };
+            box.IsKeyboardFocusWithinChanged += (s, e) =>
+            {
+                frame.BorderBrush = box.IsKeyboardFocusWithin ? B("Blue") : B("Grid");
+                if (!box.IsKeyboardFocusWithin) Take(Typed() ?? cur);
+            };
+            var arrows = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            arrows.Children.Add(Arrow(true, () => Step(1)));
+            arrows.Children.Add(Arrow(false, () => Step(-1)));
+            var dock = new DockPanel();
+            DockPanel.SetDock(arrows, Dock.Right);
+            dock.Children.Add(arrows);
+            dock.Children.Add(box);
+            frame.Child = dock;
+            show = Put;
+            return frame;
+        }
+
+        static RepeatButton Arrow(bool up, Action click)
+        {
             var p = new Path
             {
-                Data = Geometry.Parse("M 4.2,6 A 7,7 0 1 0 9,3 M 9,3 L 3,3 L 5,8"),
+                Data = Geometry.Parse(up ? "M 0,5 L 5,0 L 10,5 Z" : "M 0,0 L 10,0 L 5,5 Z"),
+                Fill = B("Muted"), Width = 9, Height = 5, Stretch = Stretch.Fill,
+            };
+            var b = new RepeatButton { Width = 24, Height = 19, Delay = 400, Interval = 60, Cursor = Cursors.Hand, Content = p, Focusable = false };
+            b.Template = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(
+                "<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='RepeatButton'>" +
+                "<Border Background='Transparent'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></Border></ControlTemplate>");
+            b.MouseEnter += (s, e) => p.Fill = B("Ink");
+            b.MouseLeave += (s, e) => p.Fill = B("Muted");
+            b.Click += (s, e) => click();
+            return b;
+        }
+
+        FrameworkElement ResetIcon(Action click)
+        {
+            // the reset: an eraser, the change rubbed out (the user, 10-22: "回到默认")
+            var p = new Path
+            {
+                Data = Geometry.Parse("M 19,20 H 8.5 L 4.3,15.7 A 1,1 0 0 1 4.3,14.3 L 14.3,4.3 A 1,1 0 0 1 15.7,4.3 L 20.7,9.3 A 1,1 0 0 1 20.7,10.7 L 11.5,20 M 18,13.3 L 11.7,7"),
                 Stroke = B("Muted"), StrokeThickness = 2, Width = 18, Height = 18, Stretch = Stretch.Uniform,
                 StrokeLineJoin = PenLineJoin.Miter,
             };
@@ -547,6 +670,7 @@ namespace Hd2ModSettingGui
         {
             state.Set(key, v);
             if (!fromWidget && rows.TryGetValue(key, out var r)) r.Show?.Invoke(v);
+            if (controlOf.TryGetValue(key, out var c)) Peek(c);
             PaintReset(key);
             RenderGroups();
             RenderMods();
@@ -589,7 +713,14 @@ namespace Hd2ModSettingGui
             Refresh();
         }
 
-        void Lang_Click(object sender, RoutedEventArgs e) { Texts.Zh = !Texts.Zh; Build(); }
+        void Lang_Click(object sender, RoutedEventArgs e)
+        {
+            Texts.Zh = !Texts.Zh;
+            var cfg = Environs.LoadConfig();
+            cfg["lang"] = Texts.Zh ? "zh" : "en";
+            Environs.SaveConfig(cfg);
+            Build();
+        }
 
         // ---------------------------------------------------------------- the watch and the status
         void Tick()
@@ -609,7 +740,7 @@ namespace Hd2ModSettingGui
                 ConnText.Text = Texts.Get("waiting_list");
                 return;
             }
-            ConnDot.Fill = running ? B("Cyan") : B("Muted");
+            ConnDot.Fill = running ? B("Blue") : B("Muted");
             ConnText.Text = Texts.Get(running ? "running" : "not_running");
             var colour = B("Muted");
             if (state.SavedAt == null) FootText.Text = Texts.Get("idle");
@@ -620,7 +751,7 @@ namespace Hd2ModSettingGui
                 if (applied != null && string.CompareOrdinal(applied, when) >= 0)
                 {
                     FootText.Text = Texts.Get("applied", applied);
-                    colour = B("Cyan");
+                    colour = B("Blue");
                 }
                 else FootText.Text = Texts.Get(running ? "waiting" : "saved_off", when);
             }
@@ -705,13 +836,13 @@ namespace Hd2ModSettingGui
             // horizontal panel gave it all it asked for: the English line ran
             // under the buttons)
             var st = new DockPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
-            var pulse = new Ellipse { Width = 8, Height = 8, Fill = B("Cyan"), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            var pulse = new Ellipse { Width = 8, Height = 8, Fill = B("Blue"), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
             DockPanel.SetDock(pulse, Dock.Left);
-            pulse.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Application.Current.Resources["CCyan"], BlurRadius = 8, ShadowDepth = 0 };
+            pulse.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Application.Current.Resources["CBlue"], BlurRadius = 8, ShadowDepth = 0 };
             pulse.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.35, TimeSpan.FromSeconds(0.8))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } });
             st.Children.Add(pulse);
-            scanText = Text(Texts.Get(scans > 0 ? "rescanned" : "watching"), "MonoText", B("Cyan"));
+            scanText = Text(Texts.Get(scans > 0 ? "rescanned" : "watching"), "MonoText", B("Blue"));
             scanText.TextWrapping = TextWrapping.Wrap;
             scanText.VerticalAlignment = VerticalAlignment.Center;
             st.Children.Add(scanText);
@@ -832,7 +963,50 @@ namespace Hd2ModSettingGui
         {
             base.OnSourceInitialized(e);
             (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(Hook);
+            acrylic = Backdrop.Enable(this);
+            if (acrylic) Frame.Background = B("Ground900");   // the ground the window drew (its own is clear for the acrylic)
         }
+
+        // ---------------------------------------------------------------- the peek
+        // (the user, 10-22: while a setting is changed, everything but its
+        // control see-through, to watch the game take it) -- from the change
+        // until 2.5 s after the last one, and while the control is held. The
+        // window is cut down to the control's rectangle (its region): the rest
+        // is no longer the window, and what is behind shows as it is; the
+        // control keeps the mouse, the keys and a dragged slider. (Clearing
+        // the backdrop left the window black, blur-behind too, and WPF refuses
+        // a layered style from outside: the user, 10-22.)
+        void Peek(FrameworkElement control)
+        {
+            if (!control.IsVisible || !(PresentationSource.FromVisual(this) is HwndSource src)) return;
+            peekEnd.Stop();
+            peekEnd.Start();
+            if (peekOf == control) return;
+            peekOf = control;
+            const double pad = 4;                     // the focus ring round a box
+            var scale = src.CompositionTarget.TransformToDevice;
+            var at = control.PointToScreen(new Point(0, 0));
+            GetWindowRect(src.Handle, out var win);
+            int x = (int)Math.Floor(at.X - win.Left - pad * scale.M11), y = (int)Math.Floor(at.Y - win.Top - pad * scale.M22);
+            int r = (int)Math.Ceiling(at.X - win.Left + (control.ActualWidth + pad) * scale.M11);
+            int b = (int)Math.Ceiling(at.Y - win.Top + (control.ActualHeight + pad) * scale.M22);
+            if (acrylic) Backdrop.Pause(this, true);
+            SetWindowRgn(src.Handle, CreateRectRgn(x, y, r, b), true);   // the system owns the region from here
+        }
+
+        void Unpeek()
+        {
+            if (peekOf != null && Mouse.LeftButton == MouseButtonState.Pressed && peekOf.IsMouseCaptureWithin) return;   // still held: the next tick
+            peekEnd.Stop();
+            peekOf = null;
+            if (PresentationSource.FromVisual(this) is HwndSource src) SetWindowRgn(src.Handle, IntPtr.Zero, true);
+            if (acrylic) Backdrop.Pause(this, false);
+        }
+
+        struct Rect32 { public int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out Rect32 r);
+        [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr h, IntPtr region, bool redraw);
+        [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
 
         // Windows 11's snap layouts open over a window's maximize button: the
         // system asks the window where its maximize button is (WM_NCHITTEST);

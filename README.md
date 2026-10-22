@@ -4,6 +4,8 @@ A small window, outside the game, for editing a Helldivers 2 mod's settings.
 A mod that supports it applies each change in the game within a second, so
 you see the effect while you play.
 
+![The window, showing example mods](docs/window_en.png)
+
 Supported mods: **Super Holo HUD** 1.127.0 or later (named Super Holo Kit before; 1.125.1 and 1.126.0 work too).
 
 One file of about 100 KB. It runs on the .NET Framework 4.8 that Windows 10
@@ -26,9 +28,19 @@ Windows 11 hovering the maximize button offers the snap layouts. A list
 that appears in the folder later is loaded by itself; "Change folder" points
 the window elsewhere and remembers it.
 
-Search finds a setting in any group. A changed setting shows a reset
-arrow; the footer undoes the last change, resets the group shown or the
-whole mod.
+Search finds a setting in any group. A changed setting shows an eraser
+that puts it back to its default; the footer undoes the last change, resets
+the group shown or the whole mod. A slider's value can also be typed, or
+stepped with the arrow keys or the small arrows beside it.
+
+On Windows 11 (22H2 or later) the window's ground is acrylic: what is
+behind it shows through, blurred. While you change a setting, everything but
+that setting's control turns clear for a moment, so with the game in
+borderless windowed mode you watch the change land in the game; it comes
+back 2.5 s after the last change, or when you let go of a slider.
+
+The window starts in Windows' language (Chinese or English); the button in
+the header switches it, and the window keeps that choice for the next start.
 
 ## What it touches
 
@@ -90,6 +102,8 @@ A mod takes part with two things:
    picked or typed). `pages` lists the
    keys shown, page by page; without it every option is on one page.
    `menu_owned` lists keys another menu holds (shown, not editable).
+   A description may be several lines: `
+` starts a new one.
 
 2. While the game runs, read `<name>_settings.txt` every second or so and
    apply any value that changed -- only a text that ends with the line
@@ -123,6 +137,8 @@ MIT -- see `LICENSE`.
 一个游戏外的小窗口，用来修改 Helldivers 2 模组的设置。支持本窗口的模组会在
 一秒内把改动应用到游戏里，边玩边调就能看到效果。
 
+![窗口截图（示例模组）](docs/window_zh.png)
+
 支持的模组：**Super Holo HUD** 1.127.0 及以后（之前叫 Super Holo Kit，1.125.1、1.126.0 也能用）。
 
 只有一个约 100 KB 的文件，用的是 Windows 10（1903 及以后）和 Windows 11
@@ -151,8 +167,14 @@ MIT -- see `LICENSE`.
 Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹里之后出现的设置清单会
 自动载入；“更改文件夹”可以指向别的文件夹，并会记住。
 
-左侧选分组，搜索框可以跨分组找设置；改过的设置旁有恢复箭头；底栏可以撤销上一步、
-恢复本组默认或整个 Mod 默认。
+左侧选分组，搜索框可以跨分组找设置；改过的设置旁有橡皮擦，点它恢复默认；底栏可以撤销上一步、
+恢复本组默认或整个 Mod 默认。滑条的数值也可以直接输入，或用方向键、旁边的小箭头逐档调整。
+
+在 Windows 11（22H2 及以后）上，窗口的底色是亚克力：后面的画面会模糊地透出来。
+改动设置时，除了正在改的那个控件，整个窗口会暂时变成全透明；游戏用无边框窗口模式时，
+就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，或松开滑条后，窗口恢复原样。
+
+窗口第一次打开时跟随 Windows 的语言（中文或英文）；用页头的按钮切换后，下次打开会沿用上次的选择。
 
 如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
 
@@ -164,6 +186,9 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 > 文件出现之前，窗口里看不到你的 mod。Super Holo HUD 起初是在读完设置后才写，
 > 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
 > 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
+
+设置的说明可以分多行：在文字里写 `
+` 换行。
 
 ### 构建
 

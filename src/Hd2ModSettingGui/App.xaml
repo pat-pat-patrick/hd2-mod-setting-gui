@@ -11,7 +11,7 @@
     <Color x:Key="CInk">#F2EFE4</Color>
     <Color x:Key="CMuted">#A9A596</Color>
     <Color x:Key="CYellow">#FFD23F</Color>
-    <Color x:Key="CCyan">#5EE7FF</Color>
+    <Color x:Key="CBlue">#5AAAFF</Color>
     <Color x:Key="CTapeInk">#14120A</Color>
     <SolidColorBrush x:Key="Ground900" Color="{StaticResource CGround900}"/>
     <SolidColorBrush x:Key="Ground700" Color="{StaticResource CGround700}"/>
@@ -19,7 +19,7 @@
     <SolidColorBrush x:Key="Ink" Color="{StaticResource CInk}"/>
     <SolidColorBrush x:Key="Muted" Color="{StaticResource CMuted}"/>
     <SolidColorBrush x:Key="Yellow" Color="{StaticResource CYellow}"/>
-    <SolidColorBrush x:Key="Cyan" Color="{StaticResource CCyan}"/>
+    <SolidColorBrush x:Key="Blue" Color="{StaticResource CBlue}"/>
     <SolidColorBrush x:Key="TapeInk" Color="{StaticResource CTapeInk}"/>
 
     <!-- Latin and figures in Bahnschrift (the design's Chakra Petch is not on
@@ -77,7 +77,7 @@
                 <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Muted}"/>
               </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Cyan}"/>
+                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Blue}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.4"/>
@@ -181,7 +181,7 @@
                 </Trigger.ExitActions>
               </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="track" Property="BorderBrush" Value="{StaticResource Cyan}"/>
+                <Setter TargetName="track" Property="BorderBrush" Value="{StaticResource Blue}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -301,7 +301,7 @@
                 <Setter TargetName="ph" Property="Visibility" Value="Visible"/>
               </MultiTrigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
-                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Cyan}"/>
+                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Blue}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>

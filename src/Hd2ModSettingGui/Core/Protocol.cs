@@ -47,6 +47,16 @@ namespace Hd2ModSettingGui.Core
         /// <summary>A choice's names; a colour's presets (Value its #rrggbb).</summary>
         public List<(string Value, Pair Name)> Choices = new List<(string, Pair)>();
 
+        /// <summary>A slider's decimals: as many as its step has.</summary>
+        public int Digits => Step < 1 ? Math.Max(0, -(int)Math.Floor(Math.Log10(Step) + 1e-9)) : 0;
+
+        /// <summary>A slider's value inside min..max, on its nearest step.</summary>
+        public double Snap(double v)
+        {
+            v = Math.Max(Min, Math.Min(Max, v));
+            return Math.Min(Max, Math.Round(Min + Math.Round((v - Min) / Step) * Step, Digits + 2));
+        }
+
         public object DefaultValue
         {
             get
@@ -76,7 +86,21 @@ namespace Hd2ModSettingGui.Core
         public HashSet<string> MenuOwned = new HashSet<string>();
 
         public string SettingsPath => Path.Combine(Folder, SettingsFile);
-        public string LogPath => Path.Combine(Folder, Name + ".log");
+        /// <summary>The mod's log: of <name>.log and <name>_v*.log in the folder
+        /// (Wheres My Shit names its log by its version) and <name>.log in the
+        /// Bingus loader's log folder (Super Beacon logs there), the newest.</summary>
+        public string LogPath
+        {
+            get
+            {
+                var found = new List<string> { Path.Combine(Folder, Name + ".log") };
+                try { found.AddRange(Directory.GetFiles(Folder, Name + "_v*.log")); }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException) { }
+                found.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                       "CowboyBingus", "Helldivers2", "Logs", Name + ".log"));
+                return found.Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() ?? found[0];
+            }
+        }
 
         public static ModList Load(string path)
         {
@@ -157,6 +181,7 @@ namespace Hd2ModSettingGui.Core
         public const string EndMark = "#end";
         public const string AppliedMark = "settings window: applied";
         static readonly Regex Hex = new Regex("^#[0-9a-fA-F]{6}$");
+        static readonly Regex Clock = new Regex("^[0-2][0-9]:[0-5][0-9]:[0-5][0-9]");
 
         public static bool IsHex(string s) => s != null && Hex.IsMatch(s);
 
@@ -281,7 +306,9 @@ namespace Hd2ModSettingGui.Core
                     int n = f.Read(buf, 0, buf.Length);
                     var lines = Encoding.UTF8.GetString(buf, 0, n).Split('\n');
                     for (int i = lines.Length - 1; i >= 0; i--)
-                        if (lines[i].Contains(AppliedMark) && lines[i].Length >= 8) return lines[i].Substring(0, 8);
+                        if (lines[i].Contains(AppliedMark))
+                            // a line without its own time: the log's last write (the game took it by then)
+                            return Clock.IsMatch(lines[i]) ? lines[i].Substring(0, 8) : File.GetLastWriteTime(logPath).ToString("HH:mm:ss");
                 }
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }
