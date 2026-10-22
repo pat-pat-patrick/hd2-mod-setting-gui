@@ -80,7 +80,6 @@ namespace Hd2ModSettingGui.Core
             return spec != null && !Equals(Value(key), spec.DefaultValue);
         }
 
-        public int ChangedCount => List.Options.Count(o => !List.MenuOwned.Contains(o.Key) && IsChanged(o.Key));
 
         public bool CanUndo => history.Count > 0;
 

@@ -39,8 +39,8 @@ stepped with the arrow keys or the small arrows beside it.
 On Windows 11 (22H2 or later) the window's ground is acrylic: what is
 behind it shows through, blurred. While you change a setting its mod marks
 for it (a size, a colour, a position), everything but that setting's control
-turns clear for a moment, so with the game in borderless windowed mode you
-watch the change land in the game; it comes back 2.5 s after the last
+turns clear for a moment while the game runs, so with it in borderless
+windowed mode you watch the change land in the game; it comes back 2.5 s after the last
 change, or when you let go of a slider.
 
 "Settings" in the header opens the window's own settings: the language
@@ -86,6 +86,7 @@ A mod takes part with two things:
    ```json
    {
      "title": "My Mod",
+     "title_zh": "我的模组",
      "version": "my-mod-1.2.0",
      "settings": "my_mod_settings.txt",
      "pages": [ { "en": "General", "zh": "通用", "keys": ["size", "glow"] } ],
@@ -108,6 +109,7 @@ A mod takes part with two things:
    picked or typed). `pages` lists the
    keys shown, page by page; without it every option is on one page.
    `menu_owned` lists keys another menu holds (shown, not editable).
+   `title_zh` (optional) is the mod's name in the Chinese window.
    A description may be several lines: `\n` starts a new one.
    `type` `key` is a key: its value is the game's own name for a keyboard
    key (`q`, `f6`, `numpad 1`, `page up`, `left ctrl` -- what the game's
@@ -189,7 +191,7 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 
 在 Windows 11（22H2 及以后）上，窗口的底色是亚克力：后面的画面会模糊地透出来。
 改动模组标注了需要的设置（比如大小、颜色、位置）时，除了正在改的那个控件，整个窗口会暂时
-变成全透明；游戏用无边框窗口模式时，就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，
+变成全透明（只在游戏运行时）；游戏用无边框窗口模式时，就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，
 或松开滑条后，窗口恢复原样。
 
 页头的“设置”打开窗口自己的设置：语言（第一次跟随 Windows，之后沿用上次的选择）、设置列表所在
@@ -205,6 +207,8 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 > 文件出现之前，窗口里看不到你的 mod。Super Holo HUD 起初是在读完设置后才写，
 > 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
 > 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
+
+清单里可以加 `title_zh` 写模组的中文名，中文界面会显示它；没有就显示 `title`。
 
 设置的说明可以分多行：在文字里写 `\n` 换行。
 

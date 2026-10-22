@@ -116,6 +116,21 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_mods_chinese_name_when_it_gives_one()
+        {
+            using (var f = new Folder(false))
+            {
+                var both = Path.Combine(f.Dir, "both_options.json");
+                var one = Path.Combine(f.Dir, "one_options.json");
+                File.WriteAllText(both, "{\"title\":\"Super Beacon\",\"title_zh\":\"超级信标\",\"settings\":\"both_settings.txt\",\"options\":[]}");
+                File.WriteAllText(one, "{\"title\":\"Ammo Lamp\",\"settings\":\"one_settings.txt\",\"options\":[]}");
+                Assert.Equal("超级信标", ModList.Load(both).TitleIn(true));
+                Assert.Equal("Super Beacon", ModList.Load(both).TitleIn(false));
+                Assert.Equal("Ammo Lamp", ModList.Load(one).TitleIn(true));      // none given: the English one
+            }
+        }
+
+        [Fact]
         public void The_peek_only_where_the_mod_asks_for_it()
         {
             using (var f = new Folder(false))
@@ -205,7 +220,7 @@ namespace Hd2ModSettingGui.Tests
                 var s = new ModState(ModList.Load(f.List));
                 Assert.Equal(s.List.Spec("size").DefaultValue, s.Value("size"));
                 Assert.IsType<bool>(s.Value("flicker"));
-                Assert.Equal(0, s.ChangedCount);
+                Assert.DoesNotContain(s.List.Options, o => s.IsChanged(o.Key));
             }
         }
 
@@ -283,7 +298,7 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
-        public void Menu_owned_keys_are_not_reset_or_counted()
+        public void Menu_owned_keys_are_not_reset()
         {
             using (var f = new Folder())
             {
@@ -292,7 +307,6 @@ namespace Hd2ModSettingGui.Tests
                 File.WriteAllText(f.Settings, "size=0.3\n#end\n");
                 var s = new ModState(ModList.Load(f.List));
                 Assert.Contains("size", s.List.MenuOwned);
-                Assert.Equal(0, s.ChangedCount);
                 s.Reset(new[] { "size" });
                 Assert.Equal(0.3, s.Value("size"));
             }

@@ -195,7 +195,7 @@ namespace Hd2ModSettingGui
             meta.Children.Add(Text(num.Success ? "v" + num.Groups[1].Value : ver, "MonoText"));
             meta.Children.Add(Text("  ·  " + Texts.Get("count", state.List.Options.Count), fg: B("Muted"), size: 12));
             titles.Children.Add(meta);
-            titles.Children.Add(Text(state.List.Title, size: 28, weight: FontWeights.Bold));
+            titles.Children.Add(Text(state.List.TitleIn(Texts.Zh), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
             head.Children.Add(titles);
             var search = Input(Texts.Get("search"), query, v => { query = v; RenderPanel(); RenderGroups(); });
@@ -251,9 +251,16 @@ namespace Hd2ModSettingGui
             for (int i = 0; i < mods.Count; i++)
             {
                 var (name, path) = mods[i];
-                string title = name;
-                try { title = name == state.List.Name ? state.List.Title : ModList.Load(path).Title; } catch (Exception) { }
+                string title = name, other = "";
+                try
+                {
+                    var list = name == state.List.Name ? state.List : ModList.Load(path);
+                    title = list.TitleIn(Texts.Zh);
+                    other = list.TitleIn(!Texts.Zh);           // the filter finds a mod by either name
+                }
+                catch (Exception) { }
                 if (modQuery != "" && title.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
+                    && other.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
                     && name.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0) continue;
                 bool cur = name == state.List.Name;
                 var box = new Border
@@ -266,14 +273,10 @@ namespace Hd2ModSettingGui
                     Cursor = cur ? null : Cursors.Hand,
                 };
                 var sp = new StackPanel();
+                // the name alone (the user, 10-23: a count of settings off their
+                // defaults read as "changed again" at every start -- gone, and the
+                // groups' dots with it; the eraser beside a setting says it)
                 sp.Children.Add(Text(title, size: 14, weight: FontWeights.SemiBold));
-                if (cur)
-                {
-                    int n = state.ChangedCount;
-                    sp.Children.Add(Text(n > 0 ? Texts.Get("n_changed", n) : Texts.Get("all_default"), "MonoText",
-                                         n > 0 ? B("Blue") : B("Muted"), 11));
-                }
-                else sp.Children.Add(Text(name, "MonoText", size: 11));
                 box.Child = sp;
                 int idx = i;
                 if (!cur) box.MouseLeftButtonUp += (s, e) => Open(idx);
@@ -310,8 +313,6 @@ namespace Hd2ModSettingGui
                 };
                 var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 sp.Children.Add(Text(name, fg: on ? B("Yellow") : B("Ink"), size: 14, weight: FontWeights.SemiBold));
-                if (keys.Any(k => !state.List.MenuOwned.Contains(k) && state.IsChanged(k)))
-                    sp.Children.Add(new Ellipse { Width = 6, Height = 6, Fill = B("Blue"), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
                 row.Child = sp;
                 int gi = index;
                 row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Name] = gi; query = ""; Build(); };
@@ -749,7 +750,8 @@ namespace Hd2ModSettingGui
         {
             state.Set(key, v);
             if (!fromWidget && rows.TryGetValue(key, out var r)) r.Show?.Invoke(v);
-            if (peekOn && state.List.Spec(key)?.Peek == true && controlOf.TryGetValue(key, out var c)) Peek(c);
+            // (the user, 10-23: no game running, nothing to see behind -- the window stays)
+            if (peekOn && running && state.List.Spec(key)?.Peek == true && controlOf.TryGetValue(key, out var c)) Peek(c);
             foreach (var p in keyPaint.Values) p();
             PaintReset(key);
             RenderGroups();
@@ -788,7 +790,7 @@ namespace Hd2ModSettingGui
         void ResetMod_Click(object sender, RoutedEventArgs e)
         {
             if (state == null) return;
-            if (MessageBox.Show(this, Texts.Get("confirm_all", state.List.Title), Texts.Get("window"), MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            if (MessageBox.Show(this, Texts.Get("confirm_all", state.List.TitleIn(Texts.Zh)), Texts.Get("window"), MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
             state.Reset(state.List.Options.Select(o => o.Key));
             Refresh();
         }

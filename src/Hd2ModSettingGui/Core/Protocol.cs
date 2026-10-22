@@ -84,7 +84,11 @@ namespace Hd2ModSettingGui.Core
     /// <summary>A mod's list of settings (its _options.json).</summary>
     public sealed class ModList
     {
-        public string Name, Title, Version, SettingsFile, Folder;
+        public string Name, Title, TitleZh, Version, SettingsFile, Folder;
+
+        /// <summary>The mod's name in the window's language: "title_zh" in Chinese
+        /// when the mod gives one, else "title".</summary>
+        public string TitleIn(bool zh) => zh && !string.IsNullOrEmpty(TitleZh) ? TitleZh : Title;
         public List<OptionSpec> Options = new List<OptionSpec>();
         public List<Page> Pages = new List<Page>();
         public HashSet<string> MenuOwned = new HashSet<string>();
@@ -118,6 +122,7 @@ namespace Hd2ModSettingGui.Core
                 Name = name,
                 Folder = Path.GetDirectoryName(path),
                 Title = root.TryGetValue("title", out var t) && t is string ts && ts != "" ? ts : name,
+                TitleZh = root.TryGetValue("title_zh", out var tz) && tz is string tzs ? tzs : null,
                 Version = root.TryGetValue("version", out var v) ? Convert.ToString(v, CultureInfo.InvariantCulture) : "",
                 SettingsFile = root.TryGetValue("settings", out var s) && s is string ss && ss != "" ? ss : name + "_settings.txt",
             };
