@@ -37,6 +37,8 @@ namespace Hd2ModSettingGui
         int scans;
         readonly DispatcherTimer writeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         readonly DispatcherTimer tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        FileSystemWatcher watcher;   // the folder: a file the game writes is read back at once, not at the next tick
+        string watched;
         readonly Dictionary<string, (ModState St, string Key, Action<object> Show, FrameworkElement Reset)> rows =
             new Dictionary<string, (ModState, string, Action<object>, FrameworkElement)>();
         StackPanel navList, groupList, panel;
@@ -78,6 +80,7 @@ namespace Hd2ModSettingGui
         // ---------------------------------------------------------------- loading
         void Load()
         {
+            Watch();
             mods = Protocol.FindMods(folder);
             found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
             var open = state?.List.Title;
@@ -119,13 +122,14 @@ namespace Hd2ModSettingGui
                 }
                 catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is InvalidOperationException)
                 {
-                    MessageBox.Show(this, mods[i].Path + "\n" + e.Message, Texts.Get("window"));
+                    Dialog.Tell(this, mods[i].Path + "\n" + e.Message);
                 }
             }
             var order = members.OrderByDescending(m => m.List.Options.Count(o => o.HasValue)).ToList();
             members.Clear();
             members.AddRange(order);
             state = members.FirstOrDefault();
+            profiles = ProfileSet.Load(Environs.LoadConfig(), title);
             query = "";
             if (build) Build();
         }
@@ -229,7 +233,7 @@ namespace Hd2ModSettingGui
             var ver = state.List.Version;
             var num = System.Text.RegularExpressions.Regex.Match(ver ?? "", @"(\d+(?:\.\d+)+)\s*$");
             meta.Children.Add(Text(num.Success ? "v" + num.Groups[1].Value : ver, "MonoText"));
-            meta.Children.Add(Text("  ·  " + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue && o.Key != m.List.ProfileKey))), fg: B("Muted"), size: 12));
+            meta.Children.Add(Text("  ·  " + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue))), fg: B("Muted"), size: 12));
             titles.Children.Add(meta);
             titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Zh), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
@@ -242,12 +246,9 @@ namespace Hd2ModSettingGui
             var headBox = new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = head };
             DockPanel.SetDock(headBox, Dock.Top);
             main.Children.Add(headBox);
-            foreach (var m in members.Where(x => x.List.ProfileKey != null))
-            {
-                var bar = ProfileBar(m);
-                DockPanel.SetDock(bar, Dock.Top);
-                main.Children.Add(bar);
-            }
+            var profileBar = ProfilesBar();
+            DockPanel.SetDock(profileBar, Dock.Top);
+            main.Children.Add(profileBar);
             var content = new Grid { Background = B("Ground700") };
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -319,15 +320,14 @@ namespace Hd2ModSettingGui
             }
         }
 
-        // every list's groups, one after another; the profile is in its bar, not in a group
+        // every list's groups, one after another
         List<(int Index, string Name, List<string> Keys, ModState Owner)> Groups()
         {
             var gs = new List<(int, string, List<string>, ModState)>();
             foreach (var m in members)
                 foreach (var p in m.List.Pages)
                 {
-                    var keys = p.Keys.Where(k => k != m.List.ProfileKey).ToList();
-                    if (keys.Count > 0) gs.Add((gs.Count, p.Name.In(Texts.Zh), keys, m));
+                    gs.Add((gs.Count, p.Name.In(Texts.Zh), p.Keys, m));
                 }
             return gs;
         }
@@ -442,91 +442,185 @@ namespace Hd2ModSettingGui
             };
         }
 
-        // ---------------------------------------------------------------- the profile
-        // (the user, 10-24) a list's "profile" setting at the top of the mod's
-        // page, whatever group is open; the names the player gave the profiles
-        // (ProfileNames, the window's own config) shown in place of the mod's
-        FrameworkElement ProfileBar(ModState m)
+        // ---------------------------------------------------------------- the profiles
+        // (the user, 10-24) the window's own profiles of the mod (ProfileSet):
+        // a click puts one into the mod's files, + saves the current values as
+        // a new one, a drag reorders them, the right-click menu renames,
+        // duplicates or deletes one. The one in use follows the changes made here.
+        ProfileSet profiles = new ProfileSet();
+        WrapPanel chipRow;
+
+        FrameworkElement ProfilesBar()
         {
-            var key = m.List.ProfileKey;
-            var spec = m.List.Spec(key);
-            var bar = new DockPanel { Margin = new Thickness(24, 10, 24, 10) };
-            var label = Text(spec.Name.In(Texts.Zh), "Label");
+            var bar = new DockPanel { Margin = new Thickness(24, 8, 24, 8) };
+            var label = Text(Texts.Get("profiles"), "Label");
             label.VerticalAlignment = VerticalAlignment.Center;
             label.Margin = new Thickness(0, 0, 16, 0);
-            if (spec.Hint.In(Texts.Zh) != "") label.ToolTip = spec.Hint.In(Texts.Zh);
             DockPanel.SetDock(label, Dock.Left);
             bar.Children.Add(label);
-            var rename = new Button { Content = Texts.Get("rename"), Style = S("Ghost"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
-            var edit = new TextBox { Style = S("Input"), Width = 200, Visibility = Visibility.Collapsed, ToolTip = Texts.Get("rename_d"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
-            foreach (var e in new FrameworkElement[] { rename, edit })
+            chipRow = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+            bar.Children.Add(chipRow);
+            RenderProfiles();
+            return new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = bar };
+        }
+
+        void RenderProfiles()
+        {
+            if (chipRow == null) return;
+            chipRow.Children.Clear();
+            for (int i = 0; i < profiles.Items.Count; i++) chipRow.Children.Add(Chip(i));
+            var add = new Button { Content = "+", Style = S("Ghost"), MinWidth = 40, Margin = new Thickness(0, 2, 0, 2), ToolTip = Texts.Get("profile_new") };
+            add.Click += (s, e) => AddProfile();
+            chipRow.Children.Add(add);
+            if (profiles.Items.Count == 0)
             {
-                DockPanel.SetDock(e, Dock.Right);
-                bar.Children.Add(e);
+                var hint = Text(Texts.Get("profile_none"), "Hint");
+                hint.VerticalAlignment = VerticalAlignment.Center;
+                hint.Margin = new Thickness(12, 0, 0, 0);
+                chipRow.Children.Add(hint);
             }
-            var seg = new WrapPanel();
-            bar.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = seg, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center });
-            var buttons = new List<RadioButton>();
-            bool quiet = false;
-            foreach (var (value, _) in spec.Choices)
+        }
+
+        FrameworkElement Chip(int i)
+        {
+            var p = profiles.Items[i];
+            bool on = i == profiles.Active;
+            var t = Text(p.Name, fg: on ? B("TapeInk") : B("Ink"), size: 14, weight: FontWeights.SemiBold);
+            t.VerticalAlignment = VerticalAlignment.Center;
+            var chip = new Border
             {
-                var rb = new RadioButton { Style = S("Segment"), GroupName = "p_" + Id(m, key), Tag = value };
-                rb.Checked += (s, e) => { if (!quiet) Change(m, key, double.Parse(value, CultureInfo.InvariantCulture), fromWidget: true); };
-                buttons.Add(rb);
-                seg.Children.Add(rb);
+                Background = on ? B("Yellow") : Brushes.Transparent, BorderBrush = on ? B("Yellow") : B("Grid"), BorderThickness = new Thickness(1),
+                Padding = new Thickness(14, 0, 14, 0), MinHeight = 36, Margin = new Thickness(0, 2, 6, 2), Cursor = Cursors.Hand,
+                Child = t, AllowDrop = true, ToolTip = Texts.Get("profile_tip"),
+            };
+            if (!on)
+            {
+                chip.MouseEnter += (s, e) => chip.Background = B("Grid");
+                chip.MouseLeave += (s, e) => chip.Background = Brushes.Transparent;
             }
-            string Own(string v) => spec.Choices.First(c => c.Value == v).Name.In(Texts.Zh);
-            void Names()
+            // a click uses it; held and moved, it is dragged to another place
+            Point? down = null;
+            chip.MouseLeftButtonDown += (s, e) => { down = e.GetPosition(chip); e.Handled = true; };
+            chip.MouseLeftButtonUp += (s, e) => { if (down != null) { down = null; UseProfile(i); } };
+            chip.MouseMove += (s, e) =>
             {
-                var cfg = Environs.LoadConfig();
-                foreach (var rb in buttons)
+                if (down == null || e.LeftButton != MouseButtonState.Pressed) { down = null; return; }
+                var d = e.GetPosition(chip) - down.Value;
+                if (Math.Abs(d.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(d.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+                down = null;
+                DragDrop.DoDragDrop(chip, new DataObject(ProfileDrag, i), DragDropEffects.Move);
+            };
+            // dropped on it: before it (its left half) or after it, marked by a blue edge
+            var plain = chip.BorderThickness;
+            var brush = chip.BorderBrush;
+            bool Before(DragEventArgs e) => e.GetPosition(chip).X < chip.ActualWidth / 2;
+            chip.DragOver += (s, e) =>
+            {
+                if (!e.Data.GetDataPresent(ProfileDrag)) return;
+                e.Effects = DragDropEffects.Move;
+                chip.BorderBrush = B("Blue");
+                chip.BorderThickness = Before(e) ? new Thickness(4, 1, 1, 1) : new Thickness(1, 1, 4, 1);
+                e.Handled = true;
+            };
+            chip.DragLeave += (s, e) => { chip.BorderThickness = plain; chip.BorderBrush = brush; };
+            chip.Drop += (s, e) =>
+            {
+                chip.BorderThickness = plain;
+                chip.BorderBrush = brush;
+                if (!e.Data.GetDataPresent(ProfileDrag)) return;
+                int from = (int)e.Data.GetData(ProfileDrag), to = Before(e) ? i : i + 1;
+                if (from < to) to--;
+                profiles.Move(from, to);
+                SaveProfiles();
+                RenderProfiles();
+            };
+            var menu = new ContextMenu();
+            foreach (var (text, act) in new (string, Action)[]
+            {
+                (Texts.Get("rename"), () => StartRename(i)),
+                (Texts.Get("duplicate"), () => { profiles.Duplicate(i, Texts.Get("copy_of", p.Name)); SaveProfiles(); RenderProfiles(); }),
+                (Texts.Get("delete"), () => DeleteProfile(i)),
+            })
+            {
+                var item = new MenuItem { Header = text };
+                item.Click += (s, e) => act();
+                menu.Items.Add(item);
+            }
+            chip.ContextMenu = menu;
+            return chip;
+        }
+
+        const string ProfileDrag = "hd2msg.profile";
+
+        void AddProfile()
+        {
+            profiles.Add(profiles.NewName(Texts.Get("profile_n")), ProfileSet.Snapshot(members));
+            SaveProfiles();
+            RenderProfiles();
+        }
+
+        // its values into the mod's files at once, as one step per list (undone like any change)
+        void UseProfile(int i)
+        {
+            var changes = ProfileSet.Changes(profiles.Items[i], members);
+            foreach (var (st, patch) in changes)
+            {
+                st.Put(patch);
+                Did(st);
+            }
+            profiles.Active = i;
+            SaveProfiles();
+            RenderProfiles();
+            if (changes.Count == 0) return;
+            Repaint();
+            writeTimer.Stop();
+            Write();
+        }
+
+        void DeleteProfile(int i)
+        {
+            if (!Dialog.Ask(this, Texts.Get("confirm_delete", profiles.Items[i].Name), Texts.Get("delete"))) return;
+            profiles.Delete(i);
+            SaveProfiles();
+            RenderProfiles();
+        }
+
+        // renamed in place: Enter (or leaving the box) keeps it, Esc drops it, empty keeps the old name
+        void StartRename(int i)
+        {
+            var box = new TextBox { Style = S("Input"), Width = 180, Text = profiles.Items[i].Name, Margin = new Thickness(0, 2, 6, 2), VerticalAlignment = VerticalAlignment.Center };
+            chipRow.Children.RemoveAt(i);
+            chipRow.Children.Insert(i, box);
+            bool done = false;
+            void End(bool keep)
+            {
+                if (done) return;
+                done = true;
+                var name = box.Text.Trim();
+                if (keep && name != "")
                 {
-                    var mine = ProfileNames.Get(cfg, m.List.Name, key, (string)rb.Tag);
-                    rb.Content = mine ?? Own((string)rb.Tag);
-                    rb.ToolTip = mine != null ? Own((string)rb.Tag) : null;     // the mod's name under the player's
+                    profiles.Items[i].Name = name;
+                    SaveProfiles();
                 }
+                RenderProfiles();
             }
-            string Current() => ((int)Math.Round((double)m.Value(key))).ToString(CultureInfo.InvariantCulture);
-            Names();
-            Action<object> show = v =>
+            box.PreviewKeyDown += (s, e) =>
             {
-                quiet = true;
-                var want = ((int)Math.Round((double)v)).ToString(CultureInfo.InvariantCulture);
-                foreach (var rb in buttons) rb.IsChecked = (string)rb.Tag == want;
-                rename.IsEnabled = buttons.Any(b => (string)b.Tag == want);
-                quiet = false;
-            };
-            rows[Id(m, key)] = (m, key, show, null);
-            show(m.Value(key));
-            // the profile chosen renamed in place: Enter (or leaving the box) keeps it, Esc drops it
-            void EndEdit(bool keep)
-            {
-                if (edit.Visibility != Visibility.Visible) return;
-                edit.Visibility = Visibility.Collapsed;
-                rename.Visibility = Visibility.Visible;
-                if (!keep || !buttons.Any(b => (string)b.Tag == Current())) return;
-                var name = edit.Text.Trim();
-                var cfg = Environs.LoadConfig();
-                ProfileNames.Set(cfg, m.List.Name, key, Current(), name == Own(Current()) ? "" : name);
-                Environs.SaveConfig(cfg);
-                Names();
-            }
-            rename.Click += (s, e) =>
-            {
-                edit.Text = (string)buttons.FirstOrDefault(b => (string)b.Tag == Current())?.Content ?? "";
-                rename.Visibility = Visibility.Collapsed;
-                edit.Visibility = Visibility.Visible;
-                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { edit.Focus(); edit.SelectAll(); }));
-            };
-            edit.PreviewKeyDown += (s, e) =>
-            {
-                if (e.Key == Key.Enter) EndEdit(true);
-                else if (e.Key == Key.Escape) EndEdit(false);
+                if (e.Key == Key.Enter) End(true);
+                else if (e.Key == Key.Escape) End(false);
                 else return;
                 e.Handled = true;
             };
-            edit.LostKeyboardFocus += (s, e) => EndEdit(true);
-            return new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = bar };
+            box.LostKeyboardFocus += (s, e) => End(true);
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { box.Focus(); box.SelectAll(); }));
+        }
+
+        void SaveProfiles()
+        {
+            if (state == null) return;
+            var cfg = Environs.LoadConfig();
+            profiles.Save(cfg, state.List.Title);
+            Environs.SaveConfig(cfg);
         }
 
         // ---------------------------------------------------------------- a setting
@@ -959,15 +1053,21 @@ namespace Hd2ModSettingGui
 
         void Write()
         {
+            bool wrote = dirty.Count > 0;
             foreach (var st in members.Where(dirty.Contains))
             {
                 try { st.Save(); }
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
-                    MessageBox.Show(this, Texts.Get("write_failed", st.List.SettingsPath + "\n" + e.Message), Texts.Get("window"));
+                    Dialog.Tell(this, Texts.Get("write_failed", st.List.SettingsPath + "\n" + e.Message));
                 }
             }
             dirty.Clear();
+            if (wrote && profiles.Active >= 0 && profiles.Active < profiles.Items.Count)
+            {
+                profiles.Items[profiles.Active].Values = ProfileSet.Snapshot(members);
+                SaveProfiles();
+            }
             PaintStatus();
         }
 
@@ -994,7 +1094,7 @@ namespace Hd2ModSettingGui
         void ResetMod_Click(object sender, RoutedEventArgs e)
         {
             if (state == null) return;
-            if (MessageBox.Show(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Zh)), Texts.Get("window"), MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            if (!Dialog.Ask(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Zh)), Texts.Get("reset"))) return;
             foreach (var m in members)
                 if (m.Reset(m.List.Options.Select(o => o.Key).Where(k => k != m.List.ProfileKey))) Did(m);
             Refresh();
@@ -1100,13 +1200,45 @@ namespace Hd2ModSettingGui
             if (!now.SequenceEqual(mods.Select(m => m.Name))) Load();
             // the file changed in the game (and none of ours waits to be written): shown, not written back
             // (the profile switched: the mod puts that profile's values in its file, read back here)
-            else if (state != null && !writeTimer.IsEnabled)
-            {
-                bool any = false;
-                foreach (var m in members) any |= m.TakeOutside();
-                if (any) Repaint();
-            }
+            else TakeBack();
             PaintStatus();
+        }
+
+        void TakeBack()
+        {
+            if (state == null || writeTimer.IsEnabled) return;
+            bool any = false;
+            foreach (var m in members) any |= m.TakeOutside();
+            if (any) Repaint();
+        }
+
+        // (the user, 10-24: a profile's values showed late) the mod's file and
+        // its log looked at when they change; the tick stays for what the
+        // watcher misses
+        void Watch()
+        {
+            if (folder == watched) return;
+            watched = folder;
+            watcher?.Dispose();
+            watcher = null;
+            try
+            {
+                watcher = new FileSystemWatcher(folder) { NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName };
+                FileSystemEventHandler seen = (s, e) =>
+                {
+                    if (!e.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) && !e.Name.EndsWith(".log", StringComparison.OrdinalIgnoreCase)) return;
+                    Dispatcher.BeginInvoke(new Action(() => { TakeBack(); PaintStatus(); }));
+                };
+                watcher.Changed += seen;
+                watcher.Created += seen;
+                watcher.Renamed += (s, e) => seen(s, e);
+                watcher.EnableRaisingEvents = true;
+            }
+            catch (Exception e) when (e is ArgumentException || e is IOException || e is UnauthorizedAccessException)
+            {
+                watcher?.Dispose();
+                watcher = null;
+            }
         }
 
         void PaintStatus()

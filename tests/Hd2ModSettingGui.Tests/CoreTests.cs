@@ -184,22 +184,103 @@ namespace Hd2ModSettingGui.Tests
             }
         }
 
+        // a mod of two lists, as ActionCam's: settings with the mod's own profile choice, and keys
+        static List<ModState> TwoLists(Folder f)
+        {
+            File.WriteAllText(Path.Combine(f.Dir, "mom_cam_options.json"), "{\"title\":\"Cam\",\"profile\":\"cam_profile\",\"options\":[" +
+                "{\"key\":\"cam_profile\",\"type\":\"choice\",\"default\":1,\"choices\":[[\"One\",\"一\"],[\"Two\",\"二\"]]}," +
+                "{\"key\":\"fov\",\"type\":\"slider\",\"min\":40,\"max\":120,\"step\":1,\"default\":75}," +
+                "{\"key\":\"sway\",\"type\":\"toggle\",\"default\":true}," +
+                "{\"key\":\"tint\",\"type\":\"color\",\"default\":\"#ffffff\"}," +
+                "{\"key\":\"part\",\"type\":\"heading\",\"en\":[\"Part\",\"\"]}]," +
+                "\"menu_owned\":[]}");
+            File.WriteAllText(Path.Combine(f.Dir, "cam_options.json"), "{\"title\":\"Cam\",\"options\":[" +
+                "{\"key\":\"k_go\",\"type\":\"key\",\"default\":\"f6\"}," +
+                "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"choices\":[[\"A\",\"A\"],[\"B\",\"B\"],[\"C\",\"C\"]]}]}");
+            return new[] { "mom_cam", "cam" }.Select(n => new ModState(ModList.Load(Path.Combine(f.Dir, n + "_options.json")))).ToList();
+        }
+
         [Fact]
-        public void Profile_names_live_in_the_window_config()
+        public void A_profile_keeps_the_values_but_keys_and_the_mods_own_profile()
+        {
+            using (var f = new Folder(false))
+            {
+                var lists = TwoLists(f);
+                lists[0].Set("fov", 90.0);
+                lists[0].Set("cam_profile", 2.0);
+                lists[1].Set("mode", 3.0);
+                var snap = ProfileSet.Snapshot(lists);
+                Assert.Equal(new[] { "cam|mode", "mom_cam|fov", "mom_cam|sway", "mom_cam|tint" }, snap.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+                Assert.Equal(90.0, snap["mom_cam|fov"]);
+                // put back: only what differs, per list; the mod's profile and the keys untouched
+                var p = new Profile { Name = "a", Values = snap };
+                lists[0].Set("fov", 60.0);
+                lists[0].Set("cam_profile", 1.0);
+                lists[1].Set("k_go", "q");
+                var changes = ProfileSet.Changes(p, lists);
+                Assert.Single(changes);
+                Assert.Same(lists[0], changes[0].St);
+                Assert.Equal(new Dictionary<string, object> { ["fov"] = 90.0 }, changes[0].Patch);
+                // a value that no longer fits its setting is left out, never written
+                p.Values["mom_cam|fov"] = "wide";
+                p.Values["cam|mode"] = 7.0;
+                p.Values["mom_cam|tint"] = "#ABCDEF";
+                p.Values["mom_cam|gone"] = 1.0;
+                changes = ProfileSet.Changes(p, lists);
+                Assert.Single(changes);
+                Assert.Equal(new Dictionary<string, object> { ["tint"] = "#abcdef" }, changes[0].Patch);
+            }
+        }
+
+        [Fact]
+        public void Profiles_add_duplicate_move_delete_and_keep_the_one_in_use()
+        {
+            var set = new ProfileSet();
+            Assert.Equal("Profile 1", set.NewName("Profile {0}"));
+            foreach (var n in new[] { "A", "B", "C" }) set.Add(n, new Dictionary<string, object> { ["l|k"] = (double)n[0] });
+            Assert.Equal(2, set.Active);                                    // a new one is in use
+            set.Active = 1;                                                 // B
+            set.Duplicate(0, "A copy");                                     // A, A copy, B, C
+            Assert.Equal(new[] { "A", "A copy", "B", "C" }, set.Items.Select(p => p.Name));
+            Assert.Equal("B", set.Items[set.Active].Name);
+            set.Items[1].Values["l|k"] = 0.0;                               // a copy has values of its own
+            Assert.Equal((double)'A', set.Items[0].Values["l|k"]);
+            set.Move(3, 0);                                                 // C, A, A copy, B
+            Assert.Equal(new[] { "C", "A", "A copy", "B" }, set.Items.Select(p => p.Name));
+            Assert.Equal("B", set.Items[set.Active].Name);
+            set.Move(0, 99);                                                // to the end
+            Assert.Equal(new[] { "A", "A copy", "B", "C" }, set.Items.Select(p => p.Name));
+            set.Delete(0);
+            Assert.Equal("B", set.Items[set.Active].Name);
+            set.Delete(set.Active);
+            Assert.Equal(-1, set.Active);                                   // none in use
+            Assert.Equal("Profile 1", set.NewName("Profile {0}"));
+            set.Items[0].Name = "Profile 1";
+            Assert.Equal("Profile 2", set.NewName("Profile {0}"));
+        }
+
+        [Fact]
+        public void Profiles_live_in_the_window_config()
         {
             var cfg = new Dictionary<string, object> { ["lang"] = "zh" };
-            Assert.Null(ProfileNames.Get(cfg, "cam", "cam_profile", "2"));
-            ProfileNames.Set(cfg, "cam", "cam_profile", "2", "  Sniper ");
-            Assert.Equal("Sniper", ProfileNames.Get(cfg, "cam", "cam_profile", "2"));
-            Assert.Null(ProfileNames.Get(cfg, "cam", "cam_profile", "1"));
-            Assert.Null(ProfileNames.Get(cfg, "other", "cam_profile", "2"));
+            Assert.Empty(ProfileSet.Load(cfg, "Cam").Items);
+            var set = new ProfileSet();
+            set.Add("Sniper", new Dictionary<string, object> { ["mom_cam|fov"] = 55.0, ["mom_cam|sway"] = false, ["mom_cam|tint"] = "#ff0000" });
+            set.Add("Wide", new Dictionary<string, object> { ["mom_cam|fov"] = 110.0 });
+            set.Active = 0;
+            set.Save(cfg, "Cam");
             // through the file and back, as the window keeps it
-            var back = (Dictionary<string, object>)Json.Parse(Json.Write(cfg));
-            Assert.Equal("Sniper", ProfileNames.Get(back, "cam", "cam_profile", "2"));
-            // empty: the mod's name again, and nothing left behind
-            ProfileNames.Set(back, "cam", "cam_profile", "2", " ");
-            Assert.Null(ProfileNames.Get(back, "cam", "cam_profile", "2"));
-            Assert.Equal(new[] { "lang" }, back.Keys.ToArray());
+            var back = ProfileSet.Load((Dictionary<string, object>)Json.Parse(Json.Write(cfg)), "Cam");
+            Assert.Equal(new[] { "Sniper", "Wide" }, back.Items.Select(p => p.Name));
+            Assert.Equal(0, back.Active);
+            Assert.Equal(false, back.Items[0].Values["mom_cam|sway"]);
+            Assert.Equal("#ff0000", back.Items[0].Values["mom_cam|tint"]);
+            Assert.Empty(ProfileSet.Load(cfg, "Other").Items);              // per mod
+            // none left: nothing left behind
+            back.Delete(1);
+            back.Delete(0);
+            back.Save(cfg, "Cam");
+            Assert.Equal(new[] { "lang" }, cfg.Keys.ToArray());
         }
 
         [Fact]

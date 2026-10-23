@@ -217,6 +217,40 @@
       </Setter>
     </Style>
 
+    <!-- the right-click menu: a plain dark list -->
+    <Style TargetType="ContextMenu">
+      <Setter Property="OverridesDefaultStyle" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <Border Background="{StaticResource Ground700}" BorderBrush="{StaticResource Grid}" BorderThickness="1" Padding="0,4">
+              <StackPanel IsItemsHost="True"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="MenuItem">
+      <Setter Property="FontFamily" Value="{StaticResource Ui}"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Border x:Name="b" Background="Transparent" Padding="16,8" MinWidth="140">
+              <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="b" Property="Background" Value="{StaticResource Grid}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- the range: a thin track, holo yellow up to the value, a square thumb -->
     <Style x:Key="ThumbSquare" TargetType="Thumb">
       <Setter Property="Template">
