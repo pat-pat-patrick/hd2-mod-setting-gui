@@ -104,7 +104,7 @@ namespace Hd2ModSettingGui
         {
             var l = lists.Where(x => x != null).ToList();
             if (l.Count == 0) return null;
-            return zh ? l.Select(x => x.TitleZh).FirstOrDefault(z => !string.IsNullOrEmpty(z)) ?? l[0].Title : l[0].Title;
+            return l.Select(x => x.TitleIn(zh)).FirstOrDefault(t => t != l[0].Title) ?? l[0].Title;
         }
 
         void Open(string title, bool build = true)
@@ -387,7 +387,7 @@ namespace Hd2ModSettingGui
                     {
                         var spec = owner.List.Spec(k);
                         if (spec == null || !spec.HasValue) continue;     // headings and texts: not results
-                        var hay = gname + " " + spec.Name.En + " " + spec.Name.Zh + " " + k;
+                        var hay = gname + " " + spec.Name.All + " " + k;
                         if (hay.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) list.Add((gname, k, owner));
                     }
             }

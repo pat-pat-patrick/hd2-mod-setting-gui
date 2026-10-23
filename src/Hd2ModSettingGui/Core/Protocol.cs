@@ -18,16 +18,42 @@ namespace Hd2ModSettingGui.Core
 {
     public enum Kind { Toggle, Choice, Slider, Color, Key, Heading, Text, Unknown }
 
-    /// <summary>A text in both languages: [en, zh] in the list.</summary>
+    /// <summary>A text of the mod's: its own, as the list writes it (English
+    /// unless the mod wrote it in another language), and its translations by
+    /// language tag ("translations" in the list; old lists: [en, zh]). Shown in
+    /// the window's language; without a translation, the mod's own text (the
+    /// user, 10-24: as CowboyBingus's mods carry theirs).</summary>
     public sealed class Pair
     {
-        public string En = "", Zh = "";
-        public string In(bool zh) => zh ? (Zh != "" ? Zh : En) : (En != "" ? En : Zh);
+        public string En = "";
+        public readonly Dictionary<string, string> Tr = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>The Simplified Chinese text: "zh-Hans" (or "zh", "zh-CN").</summary>
+        public string Zh
+        {
+            get => Find(Protocol.ChineseTags) ?? "";
+            set { if (string.IsNullOrEmpty(value)) Tr.Remove("zh-Hans"); else Tr["zh-Hans"] = value; }
+        }
+
+        string Find(string[] tags)
+        {
+            foreach (var t in tags)
+                if (Tr.TryGetValue(t, out var v) && v != "") return v;
+            return null;
+        }
+
+        public string In(bool zh) =>
+            (zh ? Find(Protocol.ChineseTags) : Find(Protocol.EnglishTags))
+            ?? (En != "" ? En : Tr.Values.FirstOrDefault(v => v != "") ?? "");
+
+        /// <summary>Every language of it, for the search.</summary>
+        public string All => En + " " + string.Join(" ", Tr.Values);
 
         public static Pair From(object o)
         {
             var p = new Pair();
-            if (o is IList l)
+            if (o is string one) p.En = one;
+            else if (o is IList l)
             {
                 if (l.Count > 0 && l[0] is string a) p.En = a;
                 if (l.Count > 1 && l[1] is string b) p.Zh = b;
@@ -89,11 +115,14 @@ namespace Hd2ModSettingGui.Core
     /// <summary>A mod's list of settings (its _options.json).</summary>
     public sealed class ModList
     {
-        public string Name, Title, TitleZh, Version, SettingsFile, Folder;
+        /// <summary>Title: the list's "title" as written (the same title is the same mod).</summary>
+        public string Name, Title, Version, SettingsFile, Folder;
+        /// <summary>The title with its translations ("title_zh" in old lists).</summary>
+        public Pair TitleText = new Pair();
+        public string TitleZh => TitleText.Zh == "" ? null : TitleText.Zh;
 
-        /// <summary>The mod's name in the window's language: "title_zh" in Chinese
-        /// when the mod gives one, else "title".</summary>
-        public string TitleIn(bool zh) => zh && !string.IsNullOrEmpty(TitleZh) ? TitleZh : Title;
+        /// <summary>The mod's name in the window's language, else its "title".</summary>
+        public string TitleIn(bool zh) => TitleText.In(zh) is var t && t != "" ? t : Title;
         public List<OptionSpec> Options = new List<OptionSpec>();
         public List<Page> Pages = new List<Page>();
         public HashSet<string> MenuOwned = new HashSet<string>();
@@ -133,10 +162,11 @@ namespace Hd2ModSettingGui.Core
                 Name = name,
                 Folder = Path.GetDirectoryName(path),
                 Title = root.TryGetValue("title", out var t) && t is string ts && ts != "" ? ts : name,
-                TitleZh = root.TryGetValue("title_zh", out var tz) && tz is string tzs ? tzs : null,
                 Version = root.TryGetValue("version", out var v) ? Convert.ToString(v, CultureInfo.InvariantCulture) : "",
                 SettingsFile = root.TryGetValue("settings", out var s) && s is string ss && ss != "" ? ss : name + "_settings.txt",
             };
+            m.TitleText.En = m.Title;
+            if (root.TryGetValue("title_zh", out var tz) && tz is string tzs) m.TitleText.Zh = tzs;
             if (root.TryGetValue("options", out var opts) && opts is IList ol)
             {
                 foreach (var o in ol.OfType<IDictionary<string, object>>())
@@ -151,34 +181,43 @@ namespace Hd2ModSettingGui.Core
                     spec.Peek = o.TryGetValue("peek", out var pk) && pk is bool pb && pb;
                     var en = o.TryGetValue("en", out var e) ? e as IList : null;
                     var zh = o.TryGetValue("zh", out var z) ? z as IList : null;
-                    spec.Name = new Pair { En = Item(en, 0), Zh = Item(zh, 0) };
-                    spec.Hint = new Pair { En = Item(en, 1), Zh = Item(zh, 1) };
+                    spec.Name = new Pair { En = o.TryGetValue("name", out var nm) && nm is string nms ? nms : Item(en, 0), Zh = Item(zh, 0) };
+                    spec.Hint = new Pair { En = o.TryGetValue("hint", out var ht) && ht is string hts ? hts : Item(en, 1), Zh = Item(zh, 1) };
                     if (o.TryGetValue("choices", out var ch) && ch is IList cl)
                     {
+                        // a choice: its name ("Off"; old lists ["Off", "关"]); a colour: [#rrggbb, name]
                         int i = 1;
-                        foreach (var c in cl.OfType<IList>())
+                        foreach (var c in cl)
                         {
                             if (spec.Kind == Kind.Color)
                             {
-                                if (c.Count > 0 && c[0] is string hex && Protocol.IsHex(hex))
-                                    spec.Choices.Add((hex.ToLowerInvariant(), new Pair { En = Item(c, 1), Zh = Item(c, 2) }));
+                                if (c is IList cc && cc.Count > 0 && cc[0] is string hex && Protocol.IsHex(hex))
+                                    spec.Choices.Add((hex.ToLowerInvariant(), new Pair { En = Item(cc, 1), Zh = Item(cc, 2) }));
                             }
-                            else
+                            else if (c is string || c is IList)
                                 spec.Choices.Add((i.ToString(CultureInfo.InvariantCulture), Pair.From(c)));
+                            else continue;
                             i++;
                         }
                     }
                     m.Options.Add(spec);
                 }
             }
+            var pageAt = new Dictionary<int, Page>();      // a page by its place in the list, 1 on
             if (root.TryGetValue("pages", out var pages) && pages is IList pl)
             {
+                int at = 0;
                 foreach (var p in pl.OfType<IDictionary<string, object>>())
                 {
                     var page = new Page
                     {
-                        Name = new Pair { En = p.TryGetValue("en", out var pe) ? pe as string ?? "" : "", Zh = p.TryGetValue("zh", out var pz) ? pz as string ?? "" : "" },
+                        Name = new Pair
+                        {
+                            En = p.TryGetValue("name", out var pn) && pn is string pns ? pns : p.TryGetValue("en", out var pe) ? pe as string ?? "" : "",
+                            Zh = p.TryGetValue("zh", out var pz) ? pz as string ?? "" : "",
+                        },
                     };
+                    pageAt[++at] = page;
                     if (p.TryGetValue("keys", out var ks) && ks is IList kl)
                         page.Keys.AddRange(kl.OfType<string>().Where(x => m.Options.Any(op => op.Key == x)));
                     if (page.Keys.Count > 0) m.Pages.Add(page);
@@ -191,7 +230,34 @@ namespace Hd2ModSettingGui.Core
             if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
                 m.ProfileKey = pfk;
             m.Profiles = root.TryGetValue("profiles", out var ps) && ps is bool psb && psb;
+            if (root.TryGetValue("translations", out var trs) && trs is IDictionary<string, object> all)
+                foreach (var lang in all)
+                    if (lang.Value is IDictionary<string, object> table)
+                        foreach (var kv in table)
+                            if (kv.Value is string text && text.Trim() != "") m.Translate(lang.Key, kv.Key, text, pageAt);
             return m;
+        }
+
+        // "translations": { "<language tag>": { "<what>": "<text>" } }, <what> being
+        // "title", "page.<n>" (the nth page), "<key>" (a setting's name),
+        // "<key>.hint", "<key>.<n>" (its nth choice or colour). A key a list
+        // does not have is left out.
+        void Translate(string lang, string what, string text, Dictionary<int, Page> pageAt)
+        {
+            Pair target = null;
+            int dot = what.IndexOf('.');
+            string head = dot < 0 ? what : what.Substring(0, dot), tail = dot < 0 ? null : what.Substring(dot + 1);
+            if (what == "title") target = TitleText;
+            else if (head == "page" && tail != null && int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var pn))
+                target = pageAt.TryGetValue(pn, out var pg) ? pg.Name : null;
+            else if (Spec(head) is OptionSpec o)
+            {
+                if (tail == null) target = o.Name;
+                else if (tail == "hint") target = o.Hint;
+                else if (int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= o.Choices.Count)
+                    target = o.Choices[n - 1].Name;
+            }
+            if (target != null) target.Tr[lang] = text;
         }
 
         static string Item(IList l, int i) => l != null && l.Count > i && l[i] is string s ? s : "";
@@ -202,6 +268,8 @@ namespace Hd2ModSettingGui.Core
     public static class Protocol
     {
         public const string OptionsSuffix = "_options.json";
+        /// <summary>The language tags the window looks for, in order (CowboyBingus's tags).</summary>
+        public static readonly string[] ChineseTags = { "zh-Hans", "zh", "zh-CN" }, EnglishTags = { "en" };
         public const string EndMark = "#end";
         public const string AppliedMark = "settings window: applied";
         static readonly Regex Hex = new Regex("^#[0-9a-fA-F]{6}$");

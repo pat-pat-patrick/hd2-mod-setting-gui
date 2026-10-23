@@ -88,36 +88,47 @@ A mod takes part with two things:
    ```json
    {
      "title": "My Mod",
-     "title_zh": "我的模组",
      "version": "my-mod-1.2.0",
      "settings": "my_mod_settings.txt",
-     "pages": [ { "en": "General", "zh": "通用", "keys": ["size", "glow"] } ],
+     "pages": [ { "name": "General", "keys": ["size", "glow", "palette", "ring"] } ],
      "options": [
        { "key": "size", "type": "slider", "min": 0.2, "max": 1, "step": 0.05, "default": 0.8,
-         "en": ["Size", "Overall size."], "zh": ["大小", "整体大小。"] },
-       { "key": "glow", "type": "toggle", "default": true, "en": ["Glow", ""], "zh": ["辉光", ""] },
-       { "key": "palette", "type": "choice", "default": 1,
-         "choices": [["Full colour", "彩色"], ["Blue", "蓝"]], "en": ["Colours", ""], "zh": ["配色", ""] },
-       { "key": "ring", "type": "color", "default": "#5ee7ff",
-         "choices": [["#5ee7ff", "Cyan", "青"], ["#ffd23f", "Yellow", "黄"]], "en": ["Ring colour", ""], "zh": ["圆环颜色", ""] }
+         "name": "Size", "hint": "Overall size." },
+       { "key": "glow", "type": "toggle", "default": true, "name": "Glow" },
+       { "key": "palette", "type": "choice", "default": 1, "name": "Colours",
+         "choices": ["Full colour", "Blue"] },
+       { "key": "ring", "type": "color", "default": "#5ee7ff", "name": "Ring colour",
+         "choices": [["#5ee7ff", "Cyan"], ["#ffd23f", "Yellow"]] }
      ],
+     "translations": {
+       "zh-Hans": { "title": "我的模组", "page.1": "通用", "size": "大小", "size.hint": "整体大小。",
+                    "glow": "辉光", "palette": "配色", "palette.1": "彩色", "palette.2": "蓝",
+                    "ring": "圆环颜色", "ring.1": "青", "ring.2": "黄" }
+     },
      "menu_owned": []
    }
    ```
 
    `type` is `toggle` (true / false), `choice` (1 .. the number of choices),
    `slider` (a number from `min` to `max` by `step`) or `color` (`#rrggbb`;
-   its `choices` are presets, `[hex, en, zh]`, and any other colour can be
+   its `choices` are presets, `[hex, name]`, and any other colour can be
    picked or typed). `pages` lists the
    keys shown, page by page; without it every option is on one page.
    `menu_owned` lists keys another menu holds (shown, not editable).
-   `title_zh` (optional) is the mod's name in the Chinese window.
+   Texts are written once, in English, as plain strings: `title`, a page's
+   `name`, a setting's `name` and `hint`, its `choices`. `translations`
+   (optional) gives each other language a table of its own, by language tag
+   (`zh-Hans`, `ru`, `de`, ... as CowboyBingus's mods use them): `title`,
+   `page.<n>` (the nth page), `<key>` (a setting's name), `<key>.hint`,
+   `<key>.<n>` (its nth choice or colour). The window shows each text in its
+   own language; one with no translation shows in English. Lists in the old
+   form (`"en": [name, hint]`, `"zh": [...]`, `title_zh`) still work.
    A description may be several lines: `\n` starts a new one.
    Two entries carry no value, only text, and go in a page's `keys` like
-   any setting: `type` `heading` is a small group's title (`en` / `zh`:
-   [title, an optional line under it]); the settings after it sit in a
+   any setting: `type` `heading` is a small group's title (`name`, and an
+   optional line under it in `hint`); the settings after it sit in a
    frame of their own. `type` `text` is a line of yours among the settings
-   (`en` / `zh`: [the text, ""]). Neither is written to the settings file.
+   (`name`). Neither is written to the settings file.
    `type` `key` is a key: its value is the game's own name for a keyboard
    key (`q`, `f6`, `numpad 1`, `page up`, `left ctrl` -- what the game's
    `Keyboard.button_name` gives), `mouse 3` for the middle mouse button,
@@ -228,12 +239,15 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 > 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
 > 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
 
-清单里可以加 `title_zh` 写模组的中文名，中文界面会显示它；没有就显示 `title`。
+文字只写一遍英文，直接写字符串：`title`、分组的 `name`、设置的 `name` 和 `hint`、`choices`。
+其他语言写在 `translations` 里（可选），每种语言一张表，按语言代码区分（`zh-Hans`、`ru`、`de` 等，和 CowboyBingus 的 mod 用的一样）：
+`title` 是模组名，`page.<n>` 是第 n 个分组，`<key>` 是设置名，`<key>.hint` 是说明，`<key>.<n>` 是第 n 个选项或颜色。
+窗口按自己的界面语言显示对应的翻译，没有翻译的显示英文。旧写法（`"en": [名称, 说明]`、`"zh": [...]`、`title_zh`）照样能读。
 
 设置的说明可以分多行：在文字里写 `\n` 换行。
 
-页面里可以加两种不带值、只有文字的条目，和普通设置一样写进分组的 `keys`：`type` 为 `heading` 是小标题（`en` / `zh` 为 [标题, 可选的一句说明]），
-它后面的设置会单独成一个框；`type` 为 `text` 是一行作者说明（`en` / `zh` 为 [文字, ""]）。这两种都不会写进设置文件。
+页面里可以加两种不带值、只有文字的条目，和普通设置一样写进分组的 `keys`：`type` 为 `heading` 是小标题（`name` 是标题，`hint` 是可选的一句说明），
+它后面的设置会单独成一个框；`type` 为 `text` 是一行作者说明（写在 `name` 里）。这两种都不会写进设置文件。
 
 `type` 为 `key` 的设置是一个按键：值是游戏自己的键盘按键名（`q`、`f6`、`numpad 1`、`page up`、`left ctrl`，
 即游戏 `Keyboard.button_name` 给出的名字），鼠标中键为 `mouse 3`，侧键为 `mouse 4` / `mouse 5`，空值表示未设置。

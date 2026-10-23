@@ -297,6 +297,47 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void Texts_once_and_their_translations_by_language()
+        {
+            // (the user, 10-24) the mod's own texts written once, each language a table of its
+            // own, as CowboyBingus's mods carry theirs; what has no translation shows as written
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"options\":[" +
+                    "{\"key\":\"size\",\"type\":\"slider\",\"min\":0,\"max\":1,\"default\":0.5,\"name\":\"Size\",\"hint\":\"How big.\"}," +
+                    "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"name\":\"Mode\",\"choices\":[\"Off\",\"Scan\",\"Always\"]}," +
+                    "{\"key\":\"tint\",\"type\":\"color\",\"default\":\"#ffffff\",\"name\":\"Tint\",\"choices\":[[\"#ffffff\",\"White\"],[\"#5aaaff\",\"Blue\"]]}]," +
+                    "\"pages\":[{\"name\":\"General\",\"keys\":[\"size\",\"mode\"]},{\"name\":\"Look\",\"keys\":[\"tint\"]}]," +
+                    "\"translations\":{" +
+                    "\"zh-Hans\":{\"title\":\"演示\",\"size\":\"大小\",\"size.hint\":\"多大。\",\"mode.1\":\"关\",\"mode.3\":\"常显\",\"tint.2\":\"蓝\",\"page.2\":\"外观\",\"gone\":\"无\",\"mode.9\":\"无\"}," +
+                    "\"ru\":{\"size\":\"Размер\"}}}");
+                var m = ModList.Load(path);
+                Assert.Equal("Demo", m.Title);                                          // the same title is the same mod, in any language
+                Assert.Equal("演示", m.TitleIn(true));
+                Assert.Equal("Demo", m.TitleIn(false));
+                var size = m.Spec("size");
+                Assert.Equal(("大小", "Size"), (size.Name.In(true), size.Name.In(false)));
+                Assert.Equal(("多大。", "How big."), (size.Hint.In(true), size.Hint.In(false)));
+                Assert.Contains("Размер", size.Name.All);                                // the search finds it in any language
+                var mode = m.Spec("mode");
+                Assert.Equal("Mode", mode.Name.In(true));                               // no translation: as written
+                Assert.Equal(new[] { "关", "Scan", "常显" }, mode.Choices.Select(c => c.Name.In(true)));
+                Assert.Equal(new[] { "1", "2", "3" }, mode.Choices.Select(c => c.Value));
+                Assert.Equal(new[] { "White", "蓝" }, m.Spec("tint").Choices.Select(c => c.Name.In(true)));
+                Assert.Equal(new[] { "General", "外观" }, m.Pages.Select(p => p.Name.In(true)));
+                // an old list's [en, zh] reads as before, and its "zh" is the Chinese translation
+                var old = Path.Combine(f.Dir, "old_options.json");
+                File.WriteAllText(old, "{\"title\":\"Old\",\"title_zh\":\"旧\",\"options\":[" +
+                    "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"en\":[\"Mode\",\"\"],\"zh\":[\"模式\",\"\"],\"choices\":[[\"Off\",\"关\"],[\"On\",\"开\"]]}]," +
+                    "\"pages\":[{\"en\":\"General\",\"zh\":\"通用\",\"keys\":[\"mode\"]}]}");
+                var o = ModList.Load(old);
+                Assert.Equal(("旧", "模式", "开", "通用"), (o.TitleIn(true), o.Spec("mode").Name.In(true), o.Spec("mode").Choices[1].Name.In(true), o.Pages[0].Name.In(true)));
+                Assert.Equal(("Old", "Mode", "On", "General"), (o.TitleIn(false), o.Spec("mode").Name.In(false), o.Spec("mode").Choices[1].Name.In(false), o.Pages[0].Name.In(false)));
+            }
+        }
+
+        [Fact]
         public void The_peek_only_where_the_mod_asks_for_it()
         {
             using (var f = new Folder(false))
