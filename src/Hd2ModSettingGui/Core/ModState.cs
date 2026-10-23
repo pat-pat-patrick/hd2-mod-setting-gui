@@ -77,7 +77,7 @@ namespace Hd2ModSettingGui.Core
         public bool IsChanged(string key)
         {
             var spec = List.Spec(key);
-            return spec != null && !Equals(Value(key), spec.DefaultValue);
+            return spec != null && spec.HasValue && !Equals(Value(key), spec.DefaultValue);
         }
 
 
@@ -96,11 +96,13 @@ namespace Hd2ModSettingGui.Core
 
         public void Set(string key, object v) => Put(new Dictionary<string, object> { [key] = v });
 
-        public void Reset(IEnumerable<string> keys)
+        /// <summary>The keys at their defaults, as one undo step; false: none to reset.</summary>
+        public bool Reset(IEnumerable<string> keys)
         {
-            var patch = keys.Where(k => !List.MenuOwned.Contains(k)).Select(List.Spec).Where(s => s != null)
+            var patch = keys.Where(k => !List.MenuOwned.Contains(k)).Select(List.Spec).Where(s => s != null && s.HasValue)
                             .ToDictionary(s => s.Key, s => s.DefaultValue);
             if (patch.Count > 0) Put(patch);
+            return patch.Count > 0;
         }
 
         public bool Undo()
@@ -120,7 +122,7 @@ namespace Hd2ModSettingGui.Core
         /// <summary>Every setting the list knows, at its value; the keys it does not, as they were.</summary>
         public void Save()
         {
-            var order = List.Options.Select(o => o.Key).ToList();
+            var order = List.Options.Where(o => o.HasValue).Select(o => o.Key).ToList();
             var all = new Dictionary<string, object>();
             foreach (var k in order) all[k] = Value(k);
             foreach (var kv in values) if (!all.ContainsKey(kv.Key)) all[kv.Key] = kv.Value;

@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace Hd2ModSettingGui.Core
 {
-    public enum Kind { Toggle, Choice, Slider, Color, Key, Unknown }
+    public enum Kind { Toggle, Choice, Slider, Color, Key, Heading, Text, Unknown }
 
     /// <summary>A text in both languages: [en, zh] in the list.</summary>
     public sealed class Pair
@@ -46,6 +46,11 @@ namespace Hd2ModSettingGui.Core
         /// <summary>The mod asks for the peek on this setting ("peek": true): while it
         /// changes the window keeps only its control, so the player sees the game.</summary>
         public bool Peek;
+
+        /// <summary>A setting with a value; a heading (a small group's title, the
+        /// rows after it in a frame of their own) and a text (a line of the
+        /// author's) have none: not written, searched, reset or undone.</summary>
+        public bool HasValue => Kind != Kind.Heading && Kind != Kind.Text;
         public Pair Name = new Pair(), Hint = new Pair();
         /// <summary>A choice's names; a colour's presets (Value its #rrggbb).</summary>
         public List<(string Value, Pair Name)> Choices = new List<(string, Pair)>();
@@ -92,6 +97,9 @@ namespace Hd2ModSettingGui.Core
         public List<OptionSpec> Options = new List<OptionSpec>();
         public List<Page> Pages = new List<Page>();
         public HashSet<string> MenuOwned = new HashSet<string>();
+        /// <summary>"profile": the key of a choice setting that picks the mod's
+        /// profile; the window shows it as a switcher at the top. null: none.</summary>
+        public string ProfileKey;
 
         public string SettingsPath => Path.Combine(Folder, SettingsFile);
         /// <summary>The mod's log: of <name>.log and <name>_v*.log in the folder
@@ -177,6 +185,8 @@ namespace Hd2ModSettingGui.Core
                 m.Pages.Add(new Page { Name = new Pair { En = "Settings", Zh = "设置" }, Keys = m.Options.Select(x => x.Key).ToList() });
             if (root.TryGetValue("menu_owned", out var mo) && mo is IList ml)
                 foreach (var k in ml.OfType<string>()) m.MenuOwned.Add(k);
+            if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
+                m.ProfileKey = pfk;
             return m;
         }
 
@@ -207,6 +217,8 @@ namespace Hd2ModSettingGui.Core
                 case "slider": return Kind.Slider;
                 case "color": return Kind.Color;
                 case "key": return Kind.Key;
+                case "heading": return Kind.Heading;
+                case "text": return Kind.Text;
                 default: return Kind.Unknown;
             }
         }
@@ -298,7 +310,7 @@ namespace Hd2ModSettingGui.Core
         /// <summary>A file's text as the setting's value; null when it does not fit.</summary>
         public static object Parse(OptionSpec spec, string raw)
         {
-            if (raw == null) return null;
+            if (raw == null || !spec.HasValue) return null;
             switch (spec.Kind)
             {
                 case Kind.Toggle: return raw == "true";

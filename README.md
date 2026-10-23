@@ -113,6 +113,11 @@ A mod takes part with two things:
    `menu_owned` lists keys another menu holds (shown, not editable).
    `title_zh` (optional) is the mod's name in the Chinese window.
    A description may be several lines: `\n` starts a new one.
+   Two entries carry no value, only text, and go in a page's `keys` like
+   any setting: `type` `heading` is a small group's title (`en` / `zh`:
+   [title, an optional line under it]); the settings after it sit in a
+   frame of their own. `type` `text` is a line of yours among the settings
+   (`en` / `zh`: [the text, ""]). Neither is written to the settings file.
    `type` `key` is a key: its value is the game's own name for a keyboard
    key (`q`, `f6`, `numpad 1`, `page up`, `left ctrl` -- what the game's
    `Keyboard.button_name` gives), `mouse 3` for the middle mouse button,
@@ -123,6 +128,14 @@ A mod takes part with two things:
    option's control while it changes, so the player sees the game take it:
    for settings whose effect is to be looked at (sizes, colours, positions),
    not for ones read off a menu. The player can turn this off.
+   Several lists with the same `title` are one mod in the window: their
+   pages side by side, each list still written to its own settings file.
+   `"profile": "<key>"` names a `choice` setting that picks the mod's
+   profile: the window shows it at the top of the mod's page, apart from
+   the pages, and reads back the values the mod puts in the file when the
+   profile changes. A reset leaves the profile chosen as it is. The player
+   can rename the profiles; those names stay in the window and are not
+   written to the mod's files.
 
 2. While the game runs, read `<name>_settings.txt` every second or so and
    apply any value that changed -- only a text that ends with the line
@@ -216,12 +229,21 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 
 设置的说明可以分多行：在文字里写 `\n` 换行。
 
+页面里可以加两种不带值、只有文字的条目，和普通设置一样写进分组的 `keys`：`type` 为 `heading` 是小标题（`en` / `zh` 为 [标题, 可选的一句说明]），
+它后面的设置会单独成一个框；`type` 为 `text` 是一行作者说明（`en` / `zh` 为 [文字, ""]）。这两种都不会写进设置文件。
+
 `type` 为 `key` 的设置是一个按键：值是游戏自己的键盘按键名（`q`、`f6`、`numpad 1`、`page up`、`left ctrl`，
 即游戏 `Keyboard.button_name` 给出的名字），鼠标中键为 `mouse 3`，侧键为 `mouse 4` / `mouse 5`，空值表示未设置。
 玩家点一下这项设置再按下按键即可；同一个模组里两项设置用了同一个键时，窗口会提示。
 
 给设置项加上 `"peek": true`，改动它时窗口会只留下它的控件，玩家能直接看到游戏里的效果。
 适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
+
+`title` 相同的几份清单在窗口里算同一个模组，各自的分组并排显示，但每份清单仍写它自己的设置文件。
+
+清单里写 `"profile": "<key>"`，指向一个 `choice` 设置，表示用它切换模组的配置：窗口把它放在模组页面顶部，不放在分组里。
+切换配置后，模组写进文件的新值会被窗口读回来。恢复默认不会改变当前选中的配置。
+玩家可以给配置重命名，这些名字只保存在窗口里，不会写进模组的文件。
 
 ### 构建
 

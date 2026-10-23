@@ -24,14 +24,21 @@ namespace Hd2ModSettingGui
     {
         string folder;
         List<(string Name, string Path)> mods = new List<(string, string)>();
-        ModState state;
+        List<ModList> found = new List<ModList>();      // mods' lists as read (null: unreadable)
+        // the mod open: its lists of the same "title" (the user, 10-24: ActionCam's
+        // keys and its settings are one mod), the one with the most settings first
+        readonly List<ModState> members = new List<ModState>();
+        ModState state;                                  // members[0]; null: none open
+        readonly List<ModState> undoOrder = new List<ModState>();     // which list each undo step is in
+        readonly HashSet<ModState> dirty = new HashSet<ModState>();   // lists to write: only those, the others the game may be writing
         readonly Dictionary<string, int> groupOf = new Dictionary<string, int>();   // mod -> the group shown
         string query = "", modQuery = "";
         bool running;
         int scans;
         readonly DispatcherTimer writeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         readonly DispatcherTimer tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        readonly Dictionary<string, (Action<object> Show, FrameworkElement Reset)> rows = new Dictionary<string, (Action<object>, FrameworkElement)>();
+        readonly Dictionary<string, (ModState St, string Key, Action<object> Show, FrameworkElement Reset)> rows =
+            new Dictionary<string, (ModState, string, Action<object>, FrameworkElement)>();
         StackPanel navList, groupList, panel;
         TextBlock scanText;
         Button copyBtn;
@@ -72,24 +79,53 @@ namespace Hd2ModSettingGui
         void Load()
         {
             mods = Protocol.FindMods(folder);
-            if (state == null || !mods.Any(m => m.Name == state.List.Name))
-                state = null;
-            if (state == null && mods.Count > 0) Open(0, build: false);
+            found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
+            var open = state?.List.Title;
+            if (open != null && !Entries().Contains(open)) open = null;
+            // the mod open stays as it is (its undo with it) while its lists are the same
+            if (open == null) { members.Clear(); state = null; }
+            else if (!MembersOf(open).Select(i => mods[i].Name).OrderBy(n => n)
+                         .SequenceEqual(members.Select(m => m.List.Name).OrderBy(n => n)))
+                Open(open, build: false);
+            if (state == null && mods.Count > 0) Open(Entries()[0], build: false);
             Build();
         }
 
-        void Open(int index, bool build = true)
+        string TitleOf(int i) => found[i]?.Title ?? mods[i].Name;
+        List<string> Entries() => Enumerable.Range(0, mods.Count).Select(TitleOf).Distinct().ToList();
+        List<int> MembersOf(string title) => Enumerable.Range(0, mods.Count).Where(i => TitleOf(i) == title).ToList();
+        static string Id(ModState st, string key) => st.List.Name + "|" + key;
+
+        // the name of a mod made of these lists: "title_zh" from any of them
+        static string NameOf(IEnumerable<ModList> lists, bool zh)
         {
-            try
+            var l = lists.Where(x => x != null).ToList();
+            if (l.Count == 0) return null;
+            return zh ? l.Select(x => x.TitleZh).FirstOrDefault(z => !string.IsNullOrEmpty(z)) ?? l[0].Title : l[0].Title;
+        }
+
+        void Open(string title, bool build = true)
+        {
+            members.Clear();
+            undoOrder.Clear();
+            dirty.Clear();
+            foreach (var i in MembersOf(title))
             {
-                state = new ModState(ModList.Load(mods[index].Path));
-                state.Changed += () => writeTimer.Stop();
+                try
+                {
+                    var st = new ModState(ModList.Load(mods[i].Path));
+                    st.Changed += () => writeTimer.Stop();
+                    members.Add(st);
+                }
+                catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is InvalidOperationException)
+                {
+                    MessageBox.Show(this, mods[i].Path + "\n" + e.Message, Texts.Get("window"));
+                }
             }
-            catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is InvalidOperationException)
-            {
-                MessageBox.Show(this, mods[index].Path + "\n" + e.Message, Texts.Get("window"));
-                state = null;
-            }
+            var order = members.OrderByDescending(m => m.List.Options.Count(o => o.HasValue)).ToList();
+            members.Clear();
+            members.AddRange(order);
+            state = members.FirstOrDefault();
             query = "";
             if (build) Build();
         }
@@ -101,7 +137,7 @@ namespace Hd2ModSettingGui
             // the window's own version first (the user, 10-22), then the mods found
             var v = typeof(MainWindow).Assembly.GetName().Version;
             SummaryText.Text = "v" + v.Major + "." + v.Minor + "." + v.Build + " · " +
-                               (mods.Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", mods.Count));
+                               (Entries().Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", Entries().Count));
             SettingsBtn.Content = Texts.Get(settingsOpen ? "back" : "settings");
             MinBtn.ToolTip = Texts.Get("minimize");
             CloseBtn.ToolTip = Texts.Get("close");
@@ -193,9 +229,9 @@ namespace Hd2ModSettingGui
             var ver = state.List.Version;
             var num = System.Text.RegularExpressions.Regex.Match(ver ?? "", @"(\d+(?:\.\d+)+)\s*$");
             meta.Children.Add(Text(num.Success ? "v" + num.Groups[1].Value : ver, "MonoText"));
-            meta.Children.Add(Text("  ·  " + Texts.Get("count", state.List.Options.Count), fg: B("Muted"), size: 12));
+            meta.Children.Add(Text("  ·  " + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue && o.Key != m.List.ProfileKey))), fg: B("Muted"), size: 12));
             titles.Children.Add(meta);
-            titles.Children.Add(Text(state.List.TitleIn(Texts.Zh), size: 28, weight: FontWeights.Bold));
+            titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Zh), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
             head.Children.Add(titles);
             var search = Input(Texts.Get("search"), query, v => { query = v; RenderPanel(); RenderGroups(); });
@@ -206,6 +242,12 @@ namespace Hd2ModSettingGui
             var headBox = new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = head };
             DockPanel.SetDock(headBox, Dock.Top);
             main.Children.Add(headBox);
+            foreach (var m in members.Where(x => x.List.ProfileKey != null))
+            {
+                var bar = ProfileBar(m);
+                DockPanel.SetDock(bar, Dock.Top);
+                main.Children.Add(bar);
+            }
             var content = new Grid { Background = B("Ground700") };
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -248,21 +290,15 @@ namespace Hd2ModSettingGui
         {
             if (navList == null || state == null) return;
             navList.Children.Clear();
-            for (int i = 0; i < mods.Count; i++)
+            foreach (var entry in Entries())
             {
-                var (name, path) = mods[i];
-                string title = name, other = "";
-                try
-                {
-                    var list = name == state.List.Name ? state.List : ModList.Load(path);
-                    title = list.TitleIn(Texts.Zh);
-                    other = list.TitleIn(!Texts.Zh);           // the filter finds a mod by either name
-                }
-                catch (Exception) { }
+                var idx = MembersOf(entry);
+                var lists = idx.Select(i => found[i]).ToList();
+                string title = NameOf(lists, Texts.Zh) ?? entry, other = NameOf(lists, !Texts.Zh) ?? entry;   // the filter finds a mod by either name
                 if (modQuery != "" && title.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
                     && other.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
-                    && name.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                bool cur = name == state.List.Name;
+                    && !idx.Any(i => mods[i].Name.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
+                bool cur = entry == state.List.Title;
                 var box = new Border
                 {
                     Background = cur ? B("Ground700") : Brushes.Transparent,
@@ -278,20 +314,30 @@ namespace Hd2ModSettingGui
                 // groups' dots with it; the eraser beside a setting says it)
                 sp.Children.Add(Text(title, size: 14, weight: FontWeights.SemiBold));
                 box.Child = sp;
-                int idx = i;
-                if (!cur) box.MouseLeftButtonUp += (s, e) => Open(idx);
+                if (!cur) box.MouseLeftButtonUp += (s, e) => Open(entry);
                 navList.Children.Add(box);
             }
         }
 
-        List<(int Index, string Name, List<string> Keys)> Groups() =>
-            state.List.Pages.Select((p, i) => (i, p.Name.In(Texts.Zh), p.Keys)).ToList();
+        // every list's groups, one after another; the profile is in its bar, not in a group
+        List<(int Index, string Name, List<string> Keys, ModState Owner)> Groups()
+        {
+            var gs = new List<(int, string, List<string>, ModState)>();
+            foreach (var m in members)
+                foreach (var p in m.List.Pages)
+                {
+                    var keys = p.Keys.Where(k => k != m.List.ProfileKey).ToList();
+                    if (keys.Count > 0) gs.Add((gs.Count, p.Name.In(Texts.Zh), keys, m));
+                }
+            return gs;
+        }
 
-        (int Index, string Name, List<string> Keys) CurrentGroup()
+        (int Index, string Name, List<string> Keys, ModState Owner) CurrentGroup()
         {
             var gs = Groups();
-            int gi = groupOf.TryGetValue(state.List.Name, out var x) ? x : 0;
-            return gs.FirstOrDefault(g => g.Index == gi) is var found && found.Keys != null ? found : gs[0];
+            if (gs.Count == 0) return (0, "", new List<string>(), state);
+            int gi = groupOf.TryGetValue(state.List.Title, out var x) ? x : 0;
+            return gi >= 0 && gi < gs.Count ? gs[gi] : gs[0];
         }
 
         void RenderGroups()
@@ -299,7 +345,7 @@ namespace Hd2ModSettingGui
             if (groupList == null || state == null) return;
             groupList.Children.Clear();
             int cur = query.Trim() == "" ? CurrentGroup().Index : -1;
-            foreach (var (index, name, keys) in Groups())
+            foreach (var (index, name, _, _) in Groups())
             {
                 bool on = index == cur;
                 var row = new Border
@@ -315,7 +361,7 @@ namespace Hd2ModSettingGui
                 sp.Children.Add(Text(name, fg: on ? B("Yellow") : B("Ink"), size: 14, weight: FontWeights.SemiBold));
                 row.Child = sp;
                 int gi = index;
-                row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Name] = gi; query = ""; Build(); };
+                row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Title] = gi; query = ""; Build(); };
                 groupList.Children.Add(row);
             }
             ResetGroupBtn.Content = Texts.Get("reset_group", CurrentGroup().Name);
@@ -327,21 +373,22 @@ namespace Hd2ModSettingGui
             panel.Children.Clear();
             rows.Clear();
             var q = query.Trim();
-            var list = new List<(string Group, string Key)>();
+            var list = new List<(string Group, string Key, ModState Owner)>();
             if (q != "")
             {
-                foreach (var (_, gname, keys) in Groups())
+                foreach (var (_, gname, keys, owner) in Groups())
                     foreach (var k in keys)
                     {
-                        var spec = state.List.Spec(k);
+                        var spec = owner.List.Spec(k);
+                        if (spec == null || !spec.HasValue) continue;     // headings and texts: not results
                         var hay = gname + " " + spec.Name.En + " " + spec.Name.Zh + " " + k;
-                        if (hay.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) list.Add((gname, k));
+                        if (hay.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) list.Add((gname, k, owner));
                     }
             }
             else
             {
                 var cg = CurrentGroup();
-                list.AddRange(cg.Keys.Select(k => ((string)null, k)));
+                list.AddRange(cg.Keys.Select(k => ((string)null, k, cg.Owner)));
             }
             var head = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
             var meta = Text(q != "" ? Texts.Get("matches", list.Count) : "", "MonoText");
@@ -355,36 +402,157 @@ namespace Hd2ModSettingGui
                 panel.Children.Add(Spaced(Text(Texts.Get("no_match"), fg: B("Muted")), 24, 24));
                 return;
             }
-            var box = new StackPanel();
-            panel.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Background = B("Ground700"), Child = box });
+            // (the user, 10-24: small groups inside a page, and the author's own
+            // lines) a heading closes the frame above and opens one below it
+            StackPanel box = null;
             for (int i = 0; i < list.Count; i++)
-                box.Children.Add(Row(list[i].Key, list[i].Group, i == list.Count - 1));
+            {
+                var spec = list[i].Owner.List.Spec(list[i].Key);
+                if (spec == null) continue;
+                if (spec.Kind == Kind.Heading)
+                {
+                    box = null;
+                    var h = new StackPanel { Margin = new Thickness(0, i == 0 ? 0 : 24, 0, 8) };
+                    h.Children.Add(Text(spec.Name.In(Texts.Zh), size: 15, weight: FontWeights.Bold));
+                    var about = spec.Hint.In(Texts.Zh);
+                    if (about != "") h.Children.Add(Spaced(Text(about, "Hint"), 4, 0));
+                    panel.Children.Add(h);
+                    continue;
+                }
+                if (box == null)
+                {
+                    box = new StackPanel();
+                    panel.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Background = B("Ground700"), Child = box });
+                }
+                bool last = i == list.Count - 1 || list[i + 1].Owner.List.Spec(list[i + 1].Key)?.Kind == Kind.Heading;
+                box.Children.Add(spec.Kind == Kind.Text ? NoteRow(spec, last) : Row(list[i].Owner, list[i].Key, list[i].Group, last));
+            }
+        }
+
+        // the author's own line among the settings: no control, no value
+        FrameworkElement NoteRow(OptionSpec spec, bool last)
+        {
+            var t = Text(spec.Name.In(Texts.Zh), "Hint");
+            t.FontSize = 13;
+            t.LineHeight = 19;
+            return new Border
+            {
+                BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, last ? 0 : 1),
+                Child = new Border { Padding = new Thickness(16, 12, 16, 12), Child = t },
+            };
+        }
+
+        // ---------------------------------------------------------------- the profile
+        // (the user, 10-24) a list's "profile" setting at the top of the mod's
+        // page, whatever group is open; the names the player gave the profiles
+        // (ProfileNames, the window's own config) shown in place of the mod's
+        FrameworkElement ProfileBar(ModState m)
+        {
+            var key = m.List.ProfileKey;
+            var spec = m.List.Spec(key);
+            var bar = new DockPanel { Margin = new Thickness(24, 10, 24, 10) };
+            var label = Text(spec.Name.In(Texts.Zh), "Label");
+            label.VerticalAlignment = VerticalAlignment.Center;
+            label.Margin = new Thickness(0, 0, 16, 0);
+            if (spec.Hint.In(Texts.Zh) != "") label.ToolTip = spec.Hint.In(Texts.Zh);
+            DockPanel.SetDock(label, Dock.Left);
+            bar.Children.Add(label);
+            var rename = new Button { Content = Texts.Get("rename"), Style = S("Ghost"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+            var edit = new TextBox { Style = S("Input"), Width = 200, Visibility = Visibility.Collapsed, ToolTip = Texts.Get("rename_d"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+            foreach (var e in new FrameworkElement[] { rename, edit })
+            {
+                DockPanel.SetDock(e, Dock.Right);
+                bar.Children.Add(e);
+            }
+            var seg = new WrapPanel();
+            bar.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = seg, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center });
+            var buttons = new List<RadioButton>();
+            bool quiet = false;
+            foreach (var (value, _) in spec.Choices)
+            {
+                var rb = new RadioButton { Style = S("Segment"), GroupName = "p_" + Id(m, key), Tag = value };
+                rb.Checked += (s, e) => { if (!quiet) Change(m, key, double.Parse(value, CultureInfo.InvariantCulture), fromWidget: true); };
+                buttons.Add(rb);
+                seg.Children.Add(rb);
+            }
+            string Own(string v) => spec.Choices.First(c => c.Value == v).Name.In(Texts.Zh);
+            void Names()
+            {
+                var cfg = Environs.LoadConfig();
+                foreach (var rb in buttons)
+                {
+                    var mine = ProfileNames.Get(cfg, m.List.Name, key, (string)rb.Tag);
+                    rb.Content = mine ?? Own((string)rb.Tag);
+                    rb.ToolTip = mine != null ? Own((string)rb.Tag) : null;     // the mod's name under the player's
+                }
+            }
+            string Current() => ((int)Math.Round((double)m.Value(key))).ToString(CultureInfo.InvariantCulture);
+            Names();
+            Action<object> show = v =>
+            {
+                quiet = true;
+                var want = ((int)Math.Round((double)v)).ToString(CultureInfo.InvariantCulture);
+                foreach (var rb in buttons) rb.IsChecked = (string)rb.Tag == want;
+                rename.IsEnabled = buttons.Any(b => (string)b.Tag == want);
+                quiet = false;
+            };
+            rows[Id(m, key)] = (m, key, show, null);
+            show(m.Value(key));
+            // the profile chosen renamed in place: Enter (or leaving the box) keeps it, Esc drops it
+            void EndEdit(bool keep)
+            {
+                if (edit.Visibility != Visibility.Visible) return;
+                edit.Visibility = Visibility.Collapsed;
+                rename.Visibility = Visibility.Visible;
+                if (!keep || !buttons.Any(b => (string)b.Tag == Current())) return;
+                var name = edit.Text.Trim();
+                var cfg = Environs.LoadConfig();
+                ProfileNames.Set(cfg, m.List.Name, key, Current(), name == Own(Current()) ? "" : name);
+                Environs.SaveConfig(cfg);
+                Names();
+            }
+            rename.Click += (s, e) =>
+            {
+                edit.Text = (string)buttons.FirstOrDefault(b => (string)b.Tag == Current())?.Content ?? "";
+                rename.Visibility = Visibility.Collapsed;
+                edit.Visibility = Visibility.Visible;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { edit.Focus(); edit.SelectAll(); }));
+            };
+            edit.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Enter) EndEdit(true);
+                else if (e.Key == Key.Escape) EndEdit(false);
+                else return;
+                e.Handled = true;
+            };
+            edit.LostKeyboardFocus += (s, e) => EndEdit(true);
+            return new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = bar };
         }
 
         // ---------------------------------------------------------------- a setting
-        FrameworkElement Row(string key, string group, bool last)
+        FrameworkElement Row(ModState st, string key, string group, bool last)
         {
-            var spec = state.List.Spec(key);
+            var spec = st.List.Spec(key);
             var body = new StackPanel { Margin = new Thickness(16, 12, 16, 12) };
             if (group != null) body.Children.Add(Text(group, "MonoText", B("Blue"), 11));
             var line = new DockPanel();
             body.Children.Add(line);
-            var reset = ResetIcon(() => Change(key, spec.DefaultValue));
+            var reset = ResetIcon(() => Change(st, key, spec.DefaultValue));
             reset.ToolTip = Texts.Get("reset_one", spec.Name.In(Texts.Zh));
             DockPanel.SetDock(reset, Dock.Right);
             line.Children.Add(reset);
             Action<object> show = null;
             FrameworkElement control;
-            if (state.List.MenuOwned.Contains(key))
+            if (st.List.MenuOwned.Contains(key))
                 control = Text(Texts.Get("owned"), fg: B("Muted"), size: 12);
             else switch (spec.Kind)
             {
                 case Kind.Toggle:
                 {
-                    var cb = new CheckBox { Style = S("Switch"), IsChecked = (bool)state.Value(key), VerticalAlignment = VerticalAlignment.Center };
+                    var cb = new CheckBox { Style = S("Switch"), IsChecked = (bool)st.Value(key), VerticalAlignment = VerticalAlignment.Center };
                     bool quiet = false;
-                    cb.Checked += (s, e) => { if (!quiet) Change(key, true, fromWidget: true); };
-                    cb.Unchecked += (s, e) => { if (!quiet) Change(key, false, fromWidget: true); };
+                    cb.Checked += (s, e) => { if (!quiet) Change(st, key, true, fromWidget: true); };
+                    cb.Unchecked += (s, e) => { if (!quiet) Change(st, key, false, fromWidget: true); };
                     show = v => { quiet = true; cb.IsChecked = (bool)v; quiet = false; };
                     control = cb;
                     break;
@@ -392,13 +560,13 @@ namespace Hd2ModSettingGui
                 case Kind.Choice:
                 {
                     var seg = new StackPanel { Orientation = Orientation.Horizontal };
-                    var group_ = "c_" + key;
+                    var group_ = "c_" + Id(st, key);
                     var buttons = new List<RadioButton>();
                     bool quiet = false;
                     foreach (var (value, name) in spec.Choices)
                     {
                         var rb = new RadioButton { Style = S("Segment"), Content = name.In(Texts.Zh), GroupName = group_, Tag = value };
-                        rb.Checked += (s, e) => { if (!quiet) Change(key, double.Parse((string)rb.Tag, CultureInfo.InvariantCulture), fromWidget: true); };
+                        rb.Checked += (s, e) => { if (!quiet) Change(st, key, double.Parse((string)rb.Tag, CultureInfo.InvariantCulture), fromWidget: true); };
                         buttons.Add(rb);
                         seg.Children.Add(rb);
                     }
@@ -425,7 +593,7 @@ namespace Hd2ModSettingGui
                         quiet = true;
                         sl.Value = v;
                         quiet = false;
-                        if (!Equals(state.Value(key), v)) Change(key, v, fromWidget: true);
+                        if (!Equals(st.Value(key), v)) Change(st, key, v, fromWidget: true);
                     }, out var shown);
                     num.Margin = new Thickness(12, 0, 0, 0);
                     sl.ValueChanged += (s, e) =>
@@ -433,7 +601,7 @@ namespace Hd2ModSettingGui
                         if (quiet) return;
                         var v = spec.Snap(sl.Value);
                         shown(v);
-                        if (!Equals(state.Value(key), v)) Change(key, v, fromWidget: true);
+                        if (!Equals(st.Value(key), v)) Change(st, key, v, fromWidget: true);
                     };
                     show = v => { quiet = true; sl.Value = (double)v; shown((double)v); quiet = false; };
                     var sp = new StackPanel { Orientation = Orientation.Horizontal };
@@ -443,13 +611,13 @@ namespace Hd2ModSettingGui
                     break;
                 }
                 case Kind.Color:
-                    control = ColorControl(key, spec, body, out show);
+                    control = ColorControl(st, key, spec, body, out show);
                     break;
                 case Kind.Key:
-                    control = KeyControl(key, body, out show);
+                    control = KeyControl(st, key, body, out show);
                     break;
                 default:
-                    control = Text(Convert.ToString(state.Value(key), CultureInfo.InvariantCulture), fg: B("Muted"));
+                    control = Text(Convert.ToString(st.Value(key), CultureInfo.InvariantCulture), fg: B("Muted"));
                     break;
             }
             control.Margin = new Thickness(0, 0, 8, 0);
@@ -459,10 +627,10 @@ namespace Hd2ModSettingGui
             line.Children.Add(both);
             var hint = spec.Hint.In(Texts.Zh);
             if (hint != "") body.Children.Add(Spaced(Text(hint, "Hint"), 4, 0));
-            show?.Invoke(state.Value(key));
-            rows[key] = (show, reset);
-            controlOf[key] = control;
-            PaintReset(key);
+            show?.Invoke(st.Value(key));
+            rows[Id(st, key)] = (st, key, show, reset);
+            controlOf[Id(st, key)] = control;
+            PaintReset(st, key);
             return new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, last ? 0 : 1), Child = body };
         }
 
@@ -596,7 +764,7 @@ namespace Hd2ModSettingGui
             return b;
         }
 
-        FrameworkElement ColorControl(string key, OptionSpec spec, StackPanel below, out Action<object> show)
+        FrameworkElement ColorControl(ModState st, string key, OptionSpec spec, StackPanel below, out Action<object> show)
         {
             // presets (the one in use ringed yellow), the picker (ringed when
             // the colour is none of them), its #RRGGBB to type
@@ -605,13 +773,13 @@ namespace Hd2ModSettingGui
             foreach (var (hex, name) in spec.Choices)
             {
                 var ring = Swatch(hex, name.In(Texts.Zh));
-                ring.MouseLeftButtonUp += (s, e) => Change(key, hex);
+                ring.MouseLeftButtonUp += (s, e) => Change(st, key, hex);
                 rings.Add((hex, ring));
                 sp.Children.Add(ring);
             }
             sp.Children.Add(new Border { Width = 1, Height = 28, Background = B("Grid"), Margin = new Thickness(8, 0, 8, 0) });
-            var custom = Swatch((string)state.Value(key), Texts.Get("pick"));
-            custom.MouseLeftButtonUp += (s, e) => PickColor(key);
+            var custom = Swatch((string)st.Value(key), Texts.Get("pick"));
+            custom.MouseLeftButtonUp += (s, e) => PickColor(st, key);
             sp.Children.Add(custom);
             var box = new TextBox { Style = S("Input"), Width = 104, FontFamily = (FontFamily)Application.Current.Resources["Mono"], Margin = new Thickness(8, 0, 0, 0), MaxLength = 7 };
             var bad = Text(Texts.Get("hex_bad"), fg: B("Yellow"), size: 12);
@@ -627,8 +795,8 @@ namespace Hd2ModSettingGui
                 bool ok = Protocol.IsHex(t);
                 box.BorderBrush = ok ? B("Grid") : B("Yellow");
                 bad.Visibility = ok ? Visibility.Collapsed : Visibility.Visible;
-                if (ok && !string.Equals((string)state.Value(key), t, StringComparison.OrdinalIgnoreCase))
-                    Change(key, t.ToLowerInvariant(), fromWidget: true);
+                if (ok && !string.Equals((string)st.Value(key), t, StringComparison.OrdinalIgnoreCase))
+                    Change(st, key, t.ToLowerInvariant(), fromWidget: true);
             };
             sp.Children.Add(box);
             show = v =>
@@ -659,7 +827,7 @@ namespace Hd2ModSettingGui
         // or middle / side mouse button pressed is taken (Esc, or leaving it,
         // keeps the one it had); the cross unbinds it. A key another of this
         // mod's key settings has too is said under it.
-        FrameworkElement KeyControl(string key, StackPanel below, out Action<object> show)
+        FrameworkElement KeyControl(ModState st, string key, StackPanel below, out Action<object> show)
         {
             var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Application.Current.Resources["Mono"] };
             var clear = new Button { Content = "×", Style = S("Ghost") };
@@ -677,7 +845,7 @@ namespace Hd2ModSettingGui
                 btn.Content = waiting ? Texts.Get("press_key") : cur == "" ? Texts.Get("no_key") : KeyNames.Label(cur);
                 btn.BorderBrush = waiting ? B("Yellow") : B("Grid");
                 clear.Visibility = cur == "" ? Visibility.Hidden : Visibility.Visible;
-                var other = cur == "" ? null : state.List.Options.FirstOrDefault(o => o.Key != key && o.Kind == Kind.Key && (string)state.Value(o.Key) == cur);
+                var other = cur == "" ? null : members.SelectMany(m => m.List.Options.Where(o => o.Kind == Kind.Key && !(m == st && o.Key == key) && (string)m.Value(o.Key) == cur)).FirstOrDefault();
                 same.Text = other == null ? "" : Texts.Get("key_same", other.Name.In(Texts.Zh));
                 same.Visibility = other == null ? Visibility.Collapsed : Visibility.Visible;
             }
@@ -685,7 +853,7 @@ namespace Hd2ModSettingGui
             {
                 waiting = false;
                 cur = name;
-                Change(key, name, fromWidget: true);
+                Change(st, key, name, fromWidget: true);
                 Paint();
             }
             btn.Click += (s, e) => { waiting = true; Paint(); btn.Focus(); };
@@ -708,7 +876,7 @@ namespace Hd2ModSettingGui
             };
             btn.LostKeyboardFocus += (s, e) => { if (waiting) { waiting = false; Paint(); } };
             clear.Click += (s, e) => Take("");
-            keyPaint[key] = Paint;
+            keyPaint[Id(st, key)] = Paint;
             show = v => { cur = (string)v; waiting = false; Paint(); };
             var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             sp.Children.Add(btn);
@@ -723,13 +891,13 @@ namespace Hd2ModSettingGui
             Child = new Border { Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)) },
         };
 
-        void PickColor(string key)
+        void PickColor(ModState st, string key)
         {
-            var c = (Color)ColorConverter.ConvertFromString((string)state.Value(key));
+            var c = (Color)ColorConverter.ConvertFromString((string)st.Value(key));
             using (var dlg = new System.Windows.Forms.ColorDialog { FullOpen = true, Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B) })
             {
                 if (dlg.ShowDialog(new Win32Owner(this)) == System.Windows.Forms.DialogResult.OK)
-                    Change(key, string.Format("#{0:x2}{1:x2}{2:x2}", dlg.Color.R, dlg.Color.G, dlg.Color.B));
+                    Change(st, key, string.Format("#{0:x2}{1:x2}{2:x2}", dlg.Color.R, dlg.Color.G, dlg.Color.B));
             }
         }
 
@@ -739,59 +907,96 @@ namespace Hd2ModSettingGui
             public IntPtr Handle { get; }
         }
 
-        void PaintReset(string key)
+        void PaintReset(ModState st, string key)
         {
-            if (!rows.TryGetValue(key, out var r)) return;
-            r.Reset.Visibility = !state.List.MenuOwned.Contains(key) && state.IsChanged(key) ? Visibility.Visible : Visibility.Hidden;
+            if (!rows.TryGetValue(Id(st, key), out var r) || r.Reset == null) return;
+            r.Reset.Visibility = !st.List.MenuOwned.Contains(key) && st.IsChanged(key) ? Visibility.Visible : Visibility.Hidden;
         }
 
         // ---------------------------------------------------------------- changes
-        void Change(string key, object v, bool fromWidget = false)
+        void Change(ModState st, string key, object v, bool fromWidget = false)
         {
-            state.Set(key, v);
-            if (!fromWidget && rows.TryGetValue(key, out var r)) r.Show?.Invoke(v);
+            st.Set(key, v);
+            Did(st);
+            if (!fromWidget && rows.TryGetValue(Id(st, key), out var r)) r.Show?.Invoke(v);
             // (the user, 10-23: no game running, nothing to see behind -- the window stays)
-            if (peekOn && running && state.List.Spec(key)?.Peek == true && controlOf.TryGetValue(key, out var c)) Peek(c);
+            if (peekOn && running && st.List.Spec(key)?.Peek == true && controlOf.TryGetValue(Id(st, key), out var c)) Peek(c);
             foreach (var p in keyPaint.Values) p();
-            PaintReset(key);
+            PaintReset(st, key);
             RenderGroups();
             RenderMods();
             writeTimer.Stop();
             writeTimer.Start();
+        }
+
+        // a step of ours in that list: undone in the order made, written
+        void Did(ModState st)
+        {
+            undoOrder.Add(st);
+            if (undoOrder.Count > ModState.UndoMax * Math.Max(1, members.Count)) undoOrder.RemoveAt(0);
+            dirty.Add(st);
         }
 
         void Refresh()
         {
-            foreach (var kv in rows)
-            {
-                kv.Value.Show?.Invoke(state.Value(kv.Key));
-                PaintReset(kv.Key);
-            }
-            RenderGroups();
-            RenderMods();
+            Repaint();
             writeTimer.Stop();
             writeTimer.Start();
         }
 
+        // every row (and the profile) shown at its value again
+        void Repaint()
+        {
+            foreach (var r in rows.Values)
+            {
+                r.Show?.Invoke(r.St.Value(r.Key));
+                PaintReset(r.St, r.Key);
+            }
+            foreach (var p in keyPaint.Values) p();
+            RenderGroups();
+            RenderMods();
+        }
+
         void Write()
         {
-            if (state == null) return;
-            try { state.Save(); }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            foreach (var st in members.Where(dirty.Contains))
             {
-                MessageBox.Show(this, Texts.Get("write_failed", state.List.SettingsPath + "\n" + e.Message), Texts.Get("window"));
+                try { st.Save(); }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    MessageBox.Show(this, Texts.Get("write_failed", st.List.SettingsPath + "\n" + e.Message), Texts.Get("window"));
+                }
             }
+            dirty.Clear();
             PaintStatus();
         }
 
-        void Undo_Click(object sender, RoutedEventArgs e) { if (state != null && state.Undo()) Refresh(); }
-        void ResetGroup_Click(object sender, RoutedEventArgs e) { if (state != null) { state.Reset(CurrentGroup().Keys); Refresh(); } }
+        void Undo_Click(object sender, RoutedEventArgs e)
+        {
+            // the last step made, in whichever list (one dropped from its list's
+            // history, past UndoMax, is skipped)
+            while (undoOrder.Count > 0)
+            {
+                var st = undoOrder[undoOrder.Count - 1];
+                undoOrder.RemoveAt(undoOrder.Count - 1);
+                if (st.Undo()) { dirty.Add(st); Refresh(); return; }
+            }
+        }
+
+        // a reset leaves the profile as it is: it puts the profile's settings back, not which profile
+        void ResetGroup_Click(object sender, RoutedEventArgs e)
+        {
+            if (state == null) return;
+            var g = CurrentGroup();
+            if (g.Owner.Reset(g.Keys)) { Did(g.Owner); Refresh(); }
+        }
 
         void ResetMod_Click(object sender, RoutedEventArgs e)
         {
             if (state == null) return;
-            if (MessageBox.Show(this, Texts.Get("confirm_all", state.List.TitleIn(Texts.Zh)), Texts.Get("window"), MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-            state.Reset(state.List.Options.Select(o => o.Key));
+            if (MessageBox.Show(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Zh)), Texts.Get("window"), MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            foreach (var m in members)
+                if (m.Reset(m.List.Options.Select(o => o.Key).Where(k => k != m.List.ProfileKey))) Did(m);
             Refresh();
         }
 
@@ -891,19 +1096,15 @@ namespace Hd2ModSettingGui
         {
             running = Environs.GameRunning();
             // a list that appears (or goes) is loaded: the same ones leave all as it is
-            var found = Protocol.FindMods(folder).Select(m => m.Name).ToList();
-            if (!found.SequenceEqual(mods.Select(m => m.Name))) Load();
+            var now = Protocol.FindMods(folder).Select(m => m.Name).ToList();
+            if (!now.SequenceEqual(mods.Select(m => m.Name))) Load();
             // the file changed in the game (and none of ours waits to be written): shown, not written back
-            else if (state != null && !writeTimer.IsEnabled && state.TakeOutside())
+            // (the profile switched: the mod puts that profile's values in its file, read back here)
+            else if (state != null && !writeTimer.IsEnabled)
             {
-                foreach (var kv in rows)
-                {
-                    kv.Value.Show?.Invoke(state.Value(kv.Key));
-                    PaintReset(kv.Key);
-                }
-                foreach (var p in keyPaint.Values) p();
-                RenderGroups();
-                RenderMods();
+                bool any = false;
+                foreach (var m in members) any |= m.TakeOutside();
+                if (any) Repaint();
             }
             PaintStatus();
         }
@@ -919,11 +1120,12 @@ namespace Hd2ModSettingGui
             ConnDot.Fill = running ? B("Blue") : B("Muted");
             ConnText.Text = Texts.Get(running ? "running" : "not_running");
             var colour = B("Muted");
-            if (state.SavedAt == null) FootText.Text = Texts.Get("idle");
+            var last = members.Where(m => m.SavedAt != null).OrderByDescending(m => m.SavedAt).FirstOrDefault();
+            if (last == null) FootText.Text = Texts.Get("idle");
             else
             {
-                var when = state.SavedAt.Value.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-                var applied = Protocol.LastApplied(state.List.LogPath);
+                var when = last.SavedAt.Value.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+                var applied = Protocol.LastApplied(last.List.LogPath);
                 if (applied != null && string.CompareOrdinal(applied, when) >= 0)
                 {
                     FootText.Text = Texts.Get("applied", applied);
@@ -1084,6 +1286,7 @@ namespace Hd2ModSettingGui
             cfg["game_dir"] = d;
             Environs.SaveConfig(cfg);
             state = null;
+            members.Clear();
             Load();
         }
 

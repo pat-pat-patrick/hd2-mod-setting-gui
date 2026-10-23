@@ -131,6 +131,78 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void Headings_and_texts_have_no_value()
+        {
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"settings\":\"demo_settings.txt\",\"options\":[" +
+                    "{\"key\":\"look\",\"type\":\"heading\",\"en\":[\"Look\",\"How it looks.\"],\"zh\":[\"外观\",\"\"]}," +
+                    "{\"key\":\"note\",\"type\":\"text\",\"en\":[\"Restart after changing these.\",\"\"],\"zh\":[\"改完需要重启。\",\"\"]}," +
+                    "{\"key\":\"size\",\"type\":\"slider\",\"min\":0,\"max\":1,\"step\":0.1,\"default\":0.5}]}");
+                File.WriteAllText(Path.Combine(f.Dir, "demo_settings.txt"), "look=3\nnote=x\nsize=0.5\n#end\n");
+                var s = new ModState(ModList.Load(path));
+                Assert.Equal(Kind.Heading, s.List.Spec("look").Kind);
+                Assert.Equal(Kind.Text, s.List.Spec("note").Kind);
+                Assert.False(s.List.Spec("look").HasValue);
+                Assert.False(s.IsChanged("look"));
+                s.Reset(new[] { "look", "note", "size" });
+                s.Set("size", 0.7);
+                s.Save();
+                var back = File.ReadAllText(Path.Combine(f.Dir, "demo_settings.txt"));
+                Assert.Contains("size=0.7", back);
+                Assert.DoesNotContain("look=0", back);                     // never written as a setting of its own
+                Assert.DoesNotContain("note=0", back);
+            }
+        }
+
+        [Fact]
+        public void A_profile_is_a_choice_the_list_names()
+        {
+            using (var f = new Folder(false))
+            {
+                string Make(string name, string profile, string type)
+                {
+                    var p = Path.Combine(f.Dir, name + "_options.json");
+                    File.WriteAllText(p, "{\"title\":\"Cam\"" + profile + ",\"options\":[" +
+                        "{\"key\":\"cam_profile\",\"type\":\"" + type + "\",\"default\":1,\"choices\":[[\"One\",\"一\"],[\"Two\",\"二\"]]}," +
+                        "{\"key\":\"part\",\"type\":\"heading\",\"en\":[\"Part\",\"\"]}," +
+                        "{\"key\":\"fov\",\"type\":\"slider\",\"min\":0,\"max\":1,\"default\":0.5}]}");
+                    return p;
+                }
+                Assert.Equal("cam_profile", ModList.Load(Make("a", ",\"profile\":\"cam_profile\"", "choice")).ProfileKey);
+                Assert.Null(ModList.Load(Make("b", "", "choice")).ProfileKey);                            // not said: none
+                Assert.Null(ModList.Load(Make("c", ",\"profile\":\"fov\"", "choice")).ProfileKey);        // not a choice
+                Assert.Null(ModList.Load(Make("d", ",\"profile\":\"nothing\"", "choice")).ProfileKey);    // no such setting
+                Assert.Null(ModList.Load(Make("e", ",\"profile\":\"cam_profile\"", "toggle")).ProfileKey);
+                // a reset says whether it made a step (the window's undo counts on it)
+                var s = new ModState(ModList.Load(Path.Combine(f.Dir, "a_options.json")));
+                Assert.False(s.Reset(new[] { "part" }));
+                Assert.False(s.CanUndo);
+                Assert.True(s.Reset(new[] { "fov" }));
+                Assert.True(s.CanUndo);
+            }
+        }
+
+        [Fact]
+        public void Profile_names_live_in_the_window_config()
+        {
+            var cfg = new Dictionary<string, object> { ["lang"] = "zh" };
+            Assert.Null(ProfileNames.Get(cfg, "cam", "cam_profile", "2"));
+            ProfileNames.Set(cfg, "cam", "cam_profile", "2", "  Sniper ");
+            Assert.Equal("Sniper", ProfileNames.Get(cfg, "cam", "cam_profile", "2"));
+            Assert.Null(ProfileNames.Get(cfg, "cam", "cam_profile", "1"));
+            Assert.Null(ProfileNames.Get(cfg, "other", "cam_profile", "2"));
+            // through the file and back, as the window keeps it
+            var back = (Dictionary<string, object>)Json.Parse(Json.Write(cfg));
+            Assert.Equal("Sniper", ProfileNames.Get(back, "cam", "cam_profile", "2"));
+            // empty: the mod's name again, and nothing left behind
+            ProfileNames.Set(back, "cam", "cam_profile", "2", " ");
+            Assert.Null(ProfileNames.Get(back, "cam", "cam_profile", "2"));
+            Assert.Equal(new[] { "lang" }, back.Keys.ToArray());
+        }
+
+        [Fact]
         public void The_peek_only_where_the_mod_asks_for_it()
         {
             using (var f = new Folder(false))
