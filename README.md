@@ -31,6 +31,8 @@ the window elsewhere and remembers it.
 A key setting is set by clicking it and pressing the key (or the middle or a
 side mouse button); Esc leaves it as it was, the cross clears it.
 
+![Key settings, on an example mod](docs/window_keys_en.png)
+
 Search finds a setting in any group. A changed setting shows an eraser
 that puts it back to its default; the footer undoes the last change, resets
 the group shown or the whole mod. A slider's value can also be typed, or
@@ -185,6 +187,8 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 自动载入；“更改文件夹”可以指向别的文件夹，并会记住。
 
 按键设置：点一下再按下想要的键（也可以是鼠标中键或侧键）；Esc 取消，叉号清除。
+
+![按键设置（示例模组）](docs/window_keys_zh.png)
 
 左侧选分组，搜索框可以跨分组找设置；改过的设置旁有橡皮擦，点它恢复默认；底栏可以撤销上一步、
 恢复本组默认或整个 Mod 默认。滑条的数值也可以直接输入，或用方向键、旁边的小箭头逐档调整。
