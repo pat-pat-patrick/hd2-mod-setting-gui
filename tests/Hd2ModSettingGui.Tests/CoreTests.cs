@@ -427,7 +427,7 @@ namespace Hd2ModSettingGui.Tests
                 Assert.True(m.Options.Count >= 60);
                 Assert.Equal(f.Settings, m.SettingsPath);
                 Assert.All(m.Pages.SelectMany(p => p.Keys), k => Assert.NotNull(m.Spec(k)));
-                Assert.Equal(new[] { Kind.Toggle, Kind.Choice, Kind.Slider, Kind.Key }, m.Options.Select(o => o.Kind).Distinct().OrderBy(k => k).ToArray());
+                Assert.Equal(new[] { Kind.Toggle, Kind.Choice, Kind.Slider, Kind.Key, Kind.Heading }, m.Options.Select(o => o.Kind).Distinct().OrderBy(k => k).ToArray());   // (1.135.0) its small groups' headings
                 Assert.Equal("equal", m.Spec("key_glow_up").DefaultValue);   // (1.129.0) its keys, by the game's names
                 var size = m.Spec("size");
                 Assert.Equal((0.2, 1.0, 0.05), (size.Min, size.Max, size.Step));
@@ -475,8 +475,8 @@ namespace Hd2ModSettingGui.Tests
                 s.Set("palette", 2.0);
                 s.Save();
                 var back = f.LuaRead();
-                Assert.Equal(s.List.Options.Select(o => o.Key).OrderBy(k => k), back.Keys.OrderBy(k => k));
-                foreach (var o in s.List.Options)
+                Assert.Equal(s.List.Options.Where(o => o.HasValue).Select(o => o.Key).OrderBy(k => k), back.Keys.OrderBy(k => k));   // headings have no value
+                foreach (var o in s.List.Options.Where(x => x.HasValue))
                 {
                     if (o.Kind == Kind.Toggle) Assert.Contains(back[o.Key], new[] { "true", "false" });
                     else if (o.Kind == Kind.Key) Assert.Equal(o.DefaultValue, back[o.Key]);
