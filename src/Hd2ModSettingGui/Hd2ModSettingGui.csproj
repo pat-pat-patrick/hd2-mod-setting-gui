@@ -11,7 +11,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>HD2 Mod Setting GUI</AssemblyName>
     <RootNamespace>Hd2ModSettingGui</RootNamespace>
-    <Version>1.8.0</Version>
+    <Version>1.9.0</Version>
     <Product>HD2 Mod Setting GUI</Product>
     <Company>pat-pat-patrick</Company>
     <Copyright>MIT License</Copyright>

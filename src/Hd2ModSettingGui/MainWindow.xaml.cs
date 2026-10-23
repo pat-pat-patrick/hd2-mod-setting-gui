@@ -409,7 +409,9 @@ namespace Hd2ModSettingGui
                 return;
             }
             // (the user, 10-24: small groups inside a page, and the author's own
-            // lines) a heading closes the frame above and opens one below it
+            // lines) a heading closes the frame above and opens one below it;
+            // (10-24: "Mod Options Menu has no headings, but it has gaps") so
+            // does a setting with a gap, untitled
             StackPanel box = null;
             for (int i = 0; i < list.Count; i++)
             {
@@ -425,12 +427,16 @@ namespace Hd2ModSettingGui
                     panel.Children.Add(h);
                     continue;
                 }
+                bool gap = spec.Gap && box != null;
+                if (gap) box = null;
                 if (box == null)
                 {
                     box = new StackPanel();
-                    panel.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Background = B("Ground700"), Child = box });
+                    panel.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Background = B("Ground700"), Child = box,
+                                                    Margin = new Thickness(0, gap ? 16 : 0, 0, 0) });
                 }
-                bool last = i == list.Count - 1 || list[i + 1].Owner.List.Spec(list[i + 1].Key)?.Kind == Kind.Heading;
+                var next = i == list.Count - 1 ? null : list[i + 1].Owner.List.Spec(list[i + 1].Key);
+                bool last = next == null || next.Kind == Kind.Heading || next.Gap;
                 box.Children.Add(spec.Kind == Kind.Text ? NoteRow(spec, last) : Row(list[i].Owner, list[i].Key, list[i].Group, last));
             }
         }

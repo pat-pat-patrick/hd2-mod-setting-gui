@@ -157,6 +157,22 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_gap_is_read_and_keeps_the_value()
+        {
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"settings\":\"demo_settings.txt\",\"options\":[" +
+                    "{\"key\":\"size\",\"type\":\"slider\",\"min\":0,\"max\":1,\"step\":0.1,\"default\":0.5}," +
+                    "{\"key\":\"mode\",\"type\":\"toggle\",\"default\":false,\"gap\":true}]}");
+                var s = new ModState(ModList.Load(path));
+                Assert.False(s.List.Spec("size").Gap);
+                Assert.True(s.List.Spec("mode").Gap);
+                Assert.True(s.List.Spec("mode").HasValue);              // a gap is only space: still a setting
+            }
+        }
+
+        [Fact]
         public void A_profile_is_a_choice_the_list_names()
         {
             using (var f = new Folder(false))

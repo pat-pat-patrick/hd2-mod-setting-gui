@@ -175,6 +175,9 @@ ignored. Lists in the old form (`"en": [name, hint]`, `"zh": [...]`,
   hides everything but that control, so the player can watch the game
   take it. Use it for things you look at (sizes, colours, positions), not
   for ones read off a menu. The player can turn this off.
+- **`"gap": true` on a setting.** A space above it: it and the settings
+  after it get a frame of their own, like a `heading` with no title (Mod
+  Options Menu's own `gap`).
 - **Several lists with the same `title`** show as one mod: their pages side
   by side, each list still written to its own values file.
 - **`"profile": "<key>"`** names a `choice` setting that picks your mod's
@@ -343,6 +346,7 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 
 - **设置项上写 `"peek": true`**：玩家改它的时候，窗口只留下这个控件，能直接看到游戏里的效果。
   适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
+- **设置项上写 `"gap": true`**：在它上面空一段，它和后面的设置单独成一个框，相当于没有标题的 `heading`（和 Mod Options Menu 的 `gap` 一样）。
 - **`title` 相同的几份清单**算同一个模组：各自的分组并排显示，但每份清单仍写它自己的设置值文件。
 - **`"profile": "<key>"`**：指向一个 `choice` 设置，表示 mod 自己用它切换配置。
   它变了以后，窗口会读回 mod 为这个配置写入的值；恢复默认不会改它。

@@ -72,6 +72,10 @@ namespace Hd2ModSettingGui.Core
         /// <summary>The mod asks for the peek on this setting ("peek": true): while it
         /// changes the window keeps only its control, so the player sees the game.</summary>
         public bool Peek;
+        /// <summary>A space above this setting ("gap": true, Mod Options Menu's own
+        /// gap): it and the rows after it in a frame of their own, as after a
+        /// heading, with no title.</summary>
+        public bool Gap;
 
         /// <summary>A setting with a value; a heading (a small group's title, the
         /// rows after it in a frame of their own) and a text (a line of the
@@ -179,6 +183,7 @@ namespace Hd2ModSettingGui.Core
                     spec.Step = o.TryGetValue("step", out var st) ? Protocol.ToDouble(st) ?? 0 : 0;
                     if (spec.Step <= 0) spec.Step = (spec.Max - spec.Min) / 100 > 0 ? (spec.Max - spec.Min) / 100 : 1;
                     spec.Peek = o.TryGetValue("peek", out var pk) && pk is bool pb && pb;
+                    spec.Gap = o.TryGetValue("gap", out var gp) && gp is bool gb && gb;
                     var en = o.TryGetValue("en", out var e) ? e as IList : null;
                     var zh = o.TryGetValue("zh", out var z) ? z as IList : null;
                     spec.Name = new Pair { En = o.TryGetValue("name", out var nm) && nm is string nms ? nms : Item(en, 0), Zh = Item(zh, 0) };
