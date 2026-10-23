@@ -525,7 +525,11 @@ namespace Hd2ModSettingGui.Tests
         {
             using (var f = new Folder())
             {
-                var text = File.ReadAllText(f.List).Replace("\"menu_owned\":{}", "\"menu_owned\":[\"size\"]").Replace("\"menu_owned\":[]", "\"menu_owned\":[\"size\"]");
+                // (the sample since Super Holo HUD 1.136.0 has no menu_owned: added at the top)
+                var text = File.ReadAllText(f.List);
+                text = text.Contains("\"menu_owned\"")
+                    ? text.Replace("\"menu_owned\":{}", "\"menu_owned\":[\"size\"]").Replace("\"menu_owned\":[]", "\"menu_owned\":[\"size\"]")
+                    : text.Insert(text.IndexOf('{') + 1, "\"menu_owned\":[\"size\"],");
                 File.WriteAllText(f.List, text);
                 File.WriteAllText(f.Settings, "size=0.3\n#end\n");
                 var s = new ModState(ModList.Load(f.List));
