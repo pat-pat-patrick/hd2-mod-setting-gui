@@ -70,93 +70,134 @@ the window shows it and says so.
 
 ## For mod authors
 
-A mod takes part with two things:
+A mod takes part in two steps:
 
-1. At launch, write `<name>_options.json` into the folder above (only when
-   it differs from what is there).
+1. **When it loads**, it writes a list of its settings: `<name>_options.json`.
+2. **While the game runs**, it reads the values the window writes: `<name>_settings.txt`.
 
-   > **Write it as early as you can: as your mod loads, not after your own
-   > settings have loaded.** Until the file exists the window cannot show
-   > your mod. Super Holo HUD wrote it after its settings' load at first,
-   > and players waited about 45 s after starting the game. If part of the
-   > list is only known later (`menu_owned`, once another menu has taken its
-   > keys), write the list at load anyway and write it again then. The list
-   > does not change while the game runs otherwise.
+Both files live in the folder above. `<name>` is any name you choose, the
+same for both.
 
-   For example:
+### Step 1: write the list of your settings
 
-   ```json
-   {
-     "title": "My Mod",
-     "version": "my-mod-1.2.0",
-     "settings": "my_mod_settings.txt",
-     "pages": [ { "name": "General", "keys": ["size", "glow", "palette", "ring"] } ],
-     "options": [
-       { "key": "size", "type": "slider", "min": 0.2, "max": 1, "step": 0.05, "default": 0.8,
-         "name": "Size", "hint": "Overall size." },
-       { "key": "glow", "type": "toggle", "default": true, "name": "Glow" },
-       { "key": "palette", "type": "choice", "default": 1, "name": "Colours",
-         "choices": ["Full colour", "Blue"] },
-       { "key": "ring", "type": "color", "default": "#5ee7ff", "name": "Ring colour",
-         "choices": [["#5ee7ff", "Cyan"], ["#ffd23f", "Yellow"]] }
-     ],
-     "translations": {
-       "zh-Hans": { "title": "我的模组", "page.1": "通用", "size": "大小", "size.hint": "整体大小。",
-                    "glow": "辉光", "palette": "配色", "palette.1": "彩色", "palette.2": "蓝",
-                    "ring": "圆环颜色", "ring.1": "青", "ring.2": "黄" }
-     },
-     "menu_owned": []
-   }
-   ```
+Write `<name>_options.json` when your mod loads, and again only when its
+content changes.
 
-   `type` is `toggle` (true / false), `choice` (1 .. the number of choices),
-   `slider` (a number from `min` to `max` by `step`) or `color` (`#rrggbb`;
-   its `choices` are presets, `[hex, name]`, and any other colour can be
-   picked or typed). `pages` lists the
-   keys shown, page by page; without it every option is on one page.
-   `menu_owned` lists keys another menu holds (shown, not editable).
-   Texts are written once, in English, as plain strings: `title`, a page's
-   `name`, a setting's `name` and `hint`, its `choices`. `translations`
-   (optional) gives each other language a table of its own, by language tag
-   (`zh-Hans`, `ru`, `de`, ... as CowboyBingus's mods use them): `title`,
-   `page.<n>` (the nth page), `<key>` (a setting's name), `<key>.hint`,
-   `<key>.<n>` (its nth choice or colour). The window shows each text in its
-   own language; one with no translation shows in English. Lists in the old
-   form (`"en": [name, hint]`, `"zh": [...]`, `title_zh`) still work.
-   A description may be several lines: `\n` starts a new one.
-   Two entries carry no value, only text, and go in a page's `keys` like
-   any setting: `type` `heading` is a small group's title (`name`, and an
-   optional line under it in `hint`); the settings after it sit in a
-   frame of their own. `type` `text` is a line of yours among the settings
-   (`name`). Neither is written to the settings file.
-   `type` `key` is a key: its value is the game's own name for a keyboard
-   key (`q`, `f6`, `numpad 1`, `page up`, `left ctrl` -- what the game's
-   `Keyboard.button_name` gives), `mouse 3` for the middle mouse button,
-   `mouse 4` / `mouse 5` for the side ones, or empty for none. The player
-   clicks the setting and presses the key; a key two of the mod's settings
-   share is pointed out.
-   `"peek": true` on an option asks the window to hide all but that
-   option's control while it changes, so the player sees the game take it:
-   for settings whose effect is to be looked at (sizes, colours, positions),
-   not for ones read off a menu. The player can turn this off.
-   Several lists with the same `title` are one mod in the window: their
-   pages side by side, each list still written to its own settings file.
-   `"profile": "<key>"` names a `choice` setting that picks the mod's own
-   profile. The window reads back the values the mod puts in the file when
-   it changes, and a reset leaves it as it is.
-   `"profiles": true` asks for the window's own profiles, shown at the top
-   of the mod's page (a mod without it gets none): whole sets of the
-   mod's values (every setting, keys too), saved with +, put into the mod's files with a
-   click, renamed, duplicated or deleted from the right-click menu, and
-   reordered by dragging. The one in use follows the changes made in the
-   window. They live in the window's config, never in the mod's files.
+> **Write it as early as you can: as your mod loads, not after your own
+> settings have loaded.** Until the file exists, the window cannot show
+> your mod. Super Holo HUD first wrote it after its settings had loaded,
+> and players waited about 45 s after starting the game. If part of the
+> list is only known later (`menu_owned`, once another menu has taken its
+> keys), write the list at load anyway and write it again then.
 
-2. While the game runs, read `<name>_settings.txt` every second or so and
-   apply any value that changed -- only a text that ends with the line
-   `#end`. Keep the file open and read it again from its start (the window
-   writes it in place), rather than opening it each time. Optionally log a line containing
-   `settings window: applied` to `<name>.log` when you do; the window's
-   status line looks for it.
+An example:
+
+```json
+{
+  "title": "My Mod",
+  "version": "my-mod-1.2.0",
+  "settings": "my_mod_settings.txt",
+  "pages": [ { "name": "General", "keys": ["size", "glow", "palette", "ring"] } ],
+  "options": [
+    { "key": "size", "type": "slider", "min": 0.2, "max": 1, "step": 0.05, "default": 0.8,
+      "name": "Size", "hint": "Overall size." },
+    { "key": "glow", "type": "toggle", "default": true, "name": "Glow" },
+    { "key": "palette", "type": "choice", "default": 1, "name": "Colours",
+      "choices": ["Full colour", "Blue"] },
+    { "key": "ring", "type": "color", "default": "#5ee7ff", "name": "Ring colour",
+      "choices": [["#5ee7ff", "Cyan"], ["#ffd23f", "Yellow"]] }
+  ],
+  "translations": {
+    "zh-Hans": { "title": "我的模组", "page.1": "通用", "size": "大小", "size.hint": "整体大小。",
+                 "glow": "辉光", "palette": "配色", "palette.1": "彩色", "palette.2": "蓝",
+                 "ring": "圆环颜色", "ring.1": "青", "ring.2": "黄" }
+  }
+}
+```
+
+#### The list's fields
+
+| Field | Needed | What it is |
+|---|---|---|
+| `title` | yes | Your mod's name. |
+| `options` | yes | Your settings, in order (below). |
+| `version` | no | Shown above the name. |
+| `settings` | no | The values file's name. Default: `<name>_settings.txt`. |
+| `pages` | no | Groups of settings: `[{ "name": "General", "keys": [...] }]`. Without it, everything is on one page. |
+| `translations` | no | Your texts in other languages (below). |
+| `menu_owned` | no | Keys another menu holds. They are shown, but can't be changed here. |
+| `profile` | no | See *Optional features*. |
+| `profiles` | no | See *Optional features*. |
+
+#### A setting
+
+Every setting has a `key` (letters, digits and `_`), a `type`, a `name`,
+and usually a `default`. `hint` is an optional line under the name; `\n`
+in it starts a new line.
+
+| `type` | Its value | Also needs |
+|---|---|---|
+| `toggle` | `true` / `false` | |
+| `choice` | `1` .. the number of choices | `choices`: `["Off", "On"]` |
+| `slider` | a number | `min`, `max`, `step` |
+| `color` | `#rrggbb` | `choices` (optional presets): `[["#5ee7ff", "Cyan"]]`. Any other colour can be picked or typed. |
+| `key` | the game's name for a key: `q`, `f6`, `numpad 1`, `page up`, `left ctrl` (what `Keyboard.button_name` gives); `mouse 3` for the middle mouse button, `mouse 4` / `mouse 5` for the side ones; empty for none | |
+| `heading` | none | A small group's title. The settings after it get a frame of their own. |
+| `text` | none | A line of your own among the settings. |
+
+For a `key`, the player clicks the setting and presses the key. If two of
+your settings use the same key, the window points it out. `heading` and
+`text` go into a page's `keys` like any setting, and are never written to
+the values file.
+
+#### Translations
+
+Write every text once, in English. For each other language, add a table
+under `translations`, by language tag: `zh-Hans`, `ru`, `de`, and so on,
+the tags CowboyBingus's mods use. In a table:
+
+| Entry | Translates |
+|---|---|
+| `title` | your mod's name |
+| `page.<n>` | the name of the nth page |
+| `<key>` | a setting's name |
+| `<key>.hint` | a setting's hint |
+| `<key>.<n>` | a setting's nth choice or colour |
+
+The window shows each text in its own language. A text with no
+translation shows in English, and an entry that matches nothing is
+ignored. Lists in the old form (`"en": [name, hint]`, `"zh": [...]`,
+`title_zh`) still work.
+
+#### Optional features
+
+- **`"peek": true` on a setting.** While the player changes it, the window
+  hides everything but that control, so the player can watch the game
+  take it. Use it for things you look at (sizes, colours, positions), not
+  for ones read off a menu. The player can turn this off.
+- **Several lists with the same `title`** show as one mod: their pages side
+  by side, each list still written to its own values file.
+- **`"profile": "<key>"`** names a `choice` setting that picks your mod's
+  own profile. When it changes, the window reads back the values your mod
+  writes for that profile. Resets leave it as it is.
+- **`"profiles": true`** gives your mod the window's own profiles, at the
+  top of its page. A profile is a whole set of your mod's values, keys
+  included. The player saves one with **+**, switches with a click,
+  reorders by dragging, and renames, duplicates or deletes one with a
+  right-click. The profile in use follows the changes made in the window.
+  Profiles are kept in the window's own config, never in your files.
+
+### Step 2: read the values
+
+- While the game runs, read `<name>_settings.txt` every second or so and
+  apply any value that changed.
+- Each line is `key=value`. Take a text only when it ends with the line
+  `#end`: without it, the window is still writing, so read again next time.
+- Keep the file open and read it again from the start (the window writes
+  it in place), rather than opening it each time.
+- Optional: when you apply a change, log a line containing
+  `settings window: applied` to `<name>.log`. The window's status line
+  looks for it.
 
 ## Build
 
@@ -232,42 +273,89 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 
 ### 给 mod 作者
 
-接入方式见上面英文的 “For mod authors”。最重要的一点：
+mod 接入分两步：
 
-> **设置清单 `<名字>_options.json` 要尽早写：mod 一加载就写，不要等自己的设置读完。**
-> 文件出现之前，窗口里看不到你的 mod。Super Holo HUD 起初是在读完设置后才写，
-> 玩家开游戏后要等约 45 秒。如果清单里有一部分要晚些才知道（比如 `menu_owned`，
-> 要等别的菜单接管完），也先在加载时写一份，到时候再补写一次。内容没变就不要重复写。
+1. **加载时**：写一份设置清单 `<名字>_options.json`。
+2. **游戏运行时**：读取窗口写入的设置值 `<名字>_settings.txt`。
 
-文字只写一遍英文，直接写字符串：`title`、分组的 `name`、设置的 `name` 和 `hint`、`choices`。
-其他语言写在 `translations` 里（可选），每种语言一张表，按语言代码区分（`zh-Hans`、`ru`、`de` 等，和 CowboyBingus 的 mod 用的一样）：
-`title` 是模组名，`page.<n>` 是第 n 个分组，`<key>` 是设置名，`<key>.hint` 是说明，`<key>.<n>` 是第 n 个选项或颜色。
-窗口按自己的界面语言显示对应的翻译，没有翻译的显示英文。旧写法（`"en": [名称, 说明]`、`"zh": [...]`、`title_zh`）照样能读。
+两个文件都放在上面说的文件夹里。`<名字>` 由你自己定，两个文件用同一个。
 
-设置的说明可以分多行：在文字里写 `\n` 换行。
+#### 第一步：写设置清单
 
-页面里可以加两种不带值、只有文字的条目，和普通设置一样写进分组的 `keys`：`type` 为 `heading` 是小标题（`name` 是标题，`hint` 是可选的一句说明），
-它后面的设置会单独成一个框；`type` 为 `text` 是一行作者说明（写在 `name` 里）。这两种都不会写进设置文件。
+mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写。
 
-`type` 为 `key` 的设置是一个按键：值是游戏自己的键盘按键名（`q`、`f6`、`numpad 1`、`page up`、`left ctrl`，
-即游戏 `Keyboard.button_name` 给出的名字），鼠标中键为 `mouse 3`，侧键为 `mouse 4` / `mouse 5`，空值表示未设置。
-玩家点一下这项设置再按下按键即可；同一个模组里两项设置用了同一个键时，窗口会提示。
+> **要尽早写：mod 一加载就写，不要等自己的设置读完。** 文件出现之前，窗口里看不到你的 mod。
+> Super Holo HUD 起初是在读完设置后才写，玩家开游戏后要等约 45 秒。
+> 如果清单里有一部分要晚些才知道（比如 `menu_owned`，要等别的菜单接管完），
+> 也先在加载时写一份，到时候再补写一次。
 
-给设置项加上 `"peek": true`，改动它时窗口会只留下它的控件，玩家能直接看到游戏里的效果。
-适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
+例子见上面英文部分。
 
-`title` 相同的几份清单在窗口里算同一个模组，各自的分组并排显示，但每份清单仍写它自己的设置文件。
+##### 清单字段
 
-清单里写 `"profile": "<key>"`，指向一个 `choice` 设置，表示模组自己用它切换配置。
-它变了以后，模组写进文件的新值会被窗口读回来；恢复默认不会改它。
+| 字段 | 必填 | 含义 |
+|---|---|---|
+| `title` | 是 | 模组名。 |
+| `options` | 是 | 各项设置，按显示顺序排列（见下）。 |
+| `version` | 否 | 显示在模组名上方。 |
+| `settings` | 否 | 设置值文件名，默认 `<名字>_settings.txt`。 |
+| `pages` | 否 | 分组：`[{ "name": "General", "keys": [...] }]`。不写则全部放在一页。 |
+| `translations` | 否 | 其他语言的文字（见下）。 |
+| `menu_owned` | 否 | 由别的菜单管理的设置。会显示，但不能在这里改。 |
+| `profile` | 否 | 见"可选功能"。 |
+| `profiles` | 否 | 见"可选功能"。 |
 
-清单里写 `"profiles": true`，窗口就为这个模组显示自己的配置栏（没写的模组不显示）。每个配置是一整套设置值（所有设置，包括按键）：
-- 点 + 用当前设置新建；
-- 点一下就把这套值写进模组的文件；
-- 右键可以重命名、复制、删除；
-- 拖动可以排序。
+##### 一项设置
 
-正在使用的配置会跟着你在窗口里的改动一起更新。这些配置存在窗口自己的配置文件里，不会写进模组的文件。
+每项设置都有 `key`（字母、数字和 `_`）、`type`、`name`，一般还有 `default`。
+`hint` 是可选的说明，显示在名字下面，文字里写 `\n` 可以换行。
+
+| `type` | 值 | 还需要 |
+|---|---|---|
+| `toggle` | `true` / `false` | |
+| `choice` | `1` 到选项个数 | `choices`：`["Off", "On"]` |
+| `slider` | 数字 | `min`、`max`、`step` |
+| `color` | `#rrggbb` | `choices`（可选的预设颜色）：`[["#5ee7ff", "Cyan"]]`。其他颜色也能选或直接输入。 |
+| `key` | 游戏自己的按键名：`q`、`f6`、`numpad 1`、`page up`、`left ctrl`（即 `Keyboard.button_name` 给出的名字）；鼠标中键 `mouse 3`，侧键 `mouse 4` / `mouse 5`；空值表示未设置 | |
+| `heading` | 无 | 小标题，它后面的设置单独成一个框。 |
+| `text` | 无 | 夹在设置之间的一行作者说明。 |
+
+按键设置：玩家点一下这项设置再按键即可；同一个 mod 里两项设置用了同一个键，窗口会提示。
+`heading` 和 `text` 和普通设置一样写进分组的 `keys`，不会写进设置值文件。
+
+##### 翻译
+
+文字只写一遍英文。每种其他语言在 `translations` 下加一张表，按语言代码区分：`zh-Hans`、`ru`、`de` 等，
+和 CowboyBingus 的 mod 用的一样。表里的条目：
+
+| 条目 | 翻译的是 |
+|---|---|
+| `title` | 模组名 |
+| `page.<n>` | 第 n 个分组的名字 |
+| `<key>` | 设置名 |
+| `<key>.hint` | 设置的说明 |
+| `<key>.<n>` | 第 n 个选项或颜色 |
+
+窗口按自己的界面语言显示对应的翻译。没有翻译的显示英文，对不上任何设置的条目会被忽略。
+旧写法（`"en": [名称, 说明]`、`"zh": [...]`、`title_zh`）照样能读。
+
+##### 可选功能
+
+- **设置项上写 `"peek": true`**：玩家改它的时候，窗口只留下这个控件，能直接看到游戏里的效果。
+  适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
+- **`title` 相同的几份清单**算同一个模组：各自的分组并排显示，但每份清单仍写它自己的设置值文件。
+- **`"profile": "<key>"`**：指向一个 `choice` 设置，表示 mod 自己用它切换配置。
+  它变了以后，窗口会读回 mod 为这个配置写入的值；恢复默认不会改它。
+- **`"profiles": true`**：在模组页面顶部显示窗口自己的配置栏。每个配置是一整套设置值（包括按键）。
+  玩家点 **+** 用当前设置新建，点一下切换，拖动排序，右键重命名、复制、删除。
+  正在使用的配置会跟着窗口里的改动一起更新。配置只存在窗口自己的配置文件里，不会写进 mod 的文件。
+
+#### 第二步：读取设置值
+
+- 游戏运行时，大约每秒读一次 `<名字>_settings.txt`，应用有变化的值。
+- 每行是 `key=value`。只有以 `#end` 这一行结尾时才算完整；没有就说明窗口还在写，下次再读。
+- 文件保持打开，每次从头重读（窗口是原地写入的），不要每次重新打开。
+- 可选：应用改动时，往 `<名字>.log` 写一行包含 `settings window: applied` 的日志，窗口的状态栏会读它。
 
 ### 构建
 
