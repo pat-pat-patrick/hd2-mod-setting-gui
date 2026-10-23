@@ -5,9 +5,9 @@
              ShutdownMode="OnMainWindowClose">
   <Application.Resources>
     <!-- the design board's tokens, its dark theme ("夜战 / 默认") -->
-    <Color x:Key="CGround900">#0D0F0C</Color>
-    <Color x:Key="CGround700">#1B1F19</Color>
-    <Color x:Key="CGrid">#2F3A2C</Color>
+    <Color x:Key="CGround900">#0C0E11</Color>
+    <Color x:Key="CGround700">#1A1D21</Color>
+    <Color x:Key="CGrid">#30353C</Color>
     <Color x:Key="CInk">#F2EFE4</Color>
     <Color x:Key="CMuted">#A9A596</Color>
     <Color x:Key="CYellow">#FFD23F</Color>
