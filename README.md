@@ -132,10 +132,10 @@ A mod takes part with two things:
    pages side by side, each list still written to its own settings file.
    `"profile": "<key>"` names a `choice` setting that picks the mod's own
    profile. The window reads back the values the mod puts in the file when
-   it changes, leaves it out of its own profiles (below), and a reset leaves
-   it as it is.
-   The window keeps profiles of its own for every mod: whole sets of the
-   mod's values (but keys), saved with +, put into the mod's files with a
+   it changes, and a reset leaves it as it is.
+   `"profiles": true` asks for the window's own profiles, shown at the top
+   of the mod's page (a mod without it gets none): whole sets of the
+   mod's values (every setting, keys too), saved with +, put into the mod's files with a
    click, renamed, duplicated or deleted from the right-click menu, and
    reordered by dragging. The one in use follows the changes made in the
    window. They live in the window's config, never in the mod's files.
@@ -245,9 +245,9 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 `title` 相同的几份清单在窗口里算同一个模组，各自的分组并排显示，但每份清单仍写它自己的设置文件。
 
 清单里写 `"profile": "<key>"`，指向一个 `choice` 设置，表示模组自己用它切换配置。
-它变了以后，模组写进文件的新值会被窗口读回来；窗口自己的配置（见下）不包含它，恢复默认也不会改它。
+它变了以后，模组写进文件的新值会被窗口读回来；恢复默认不会改它。
 
-窗口为每个模组保存自己的配置，每个配置是一整套设置值（按键除外）：
+清单里写 `"profiles": true`，窗口就为这个模组显示自己的配置栏（没写的模组不显示）。每个配置是一整套设置值（所有设置，包括按键）：
 - 点 + 用当前设置新建；
 - 点一下就把这套值写进模组的文件；
 - 右键可以重命名、复制、删除；

@@ -100,6 +100,9 @@ namespace Hd2ModSettingGui.Core
         /// <summary>"profile": the key of a choice setting that picks the mod's
         /// profile; the window shows it as a switcher at the top. null: none.</summary>
         public string ProfileKey;
+        /// <summary>"profiles": true: the mod asks for the window's own profiles
+        /// (the user, 10-24: only a mod that declares it gets the bar).</summary>
+        public bool Profiles;
 
         public string SettingsPath => Path.Combine(Folder, SettingsFile);
         /// <summary>The mod's log: of <name>.log and <name>_v*.log in the folder
@@ -187,6 +190,7 @@ namespace Hd2ModSettingGui.Core
                 foreach (var k in ml.OfType<string>()) m.MenuOwned.Add(k);
             if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
                 m.ProfileKey = pfk;
+            m.Profiles = root.TryGetValue("profiles", out var ps) && ps is bool psb && psb;
             return m;
         }
 

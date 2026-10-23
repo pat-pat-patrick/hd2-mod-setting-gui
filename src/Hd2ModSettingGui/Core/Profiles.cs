@@ -16,9 +16,10 @@ namespace Hd2ModSettingGui.Core
     /// the mod: each a whole set of the mod's values, put into the mod's files
     /// when chosen. In the window's config.json:
     /// "profiles": { "&lt;title&gt;": { "active": i, "list": [{ "name", "values" }] } }.
-    /// Kept: every setting with a value, but keys (bindings are not a profile's),
-    /// settings another menu holds, and the mod's own profile choice (a switch
-    /// of it in the same file would drop the other values: Boot Mod Loader).</summary>
+    /// Kept: every setting with a value (the user, 10-24: "所有的设置", keys and
+    /// a mod's own profile choice too), but those another menu holds. A switch
+    /// of a mod's own profile in the same write makes Boot Mod Loader drop the
+    /// other values: in the game the mod then loads that profile's own.</summary>
     public sealed class ProfileSet
     {
         const string Field = "profiles";
@@ -29,7 +30,7 @@ namespace Hd2ModSettingGui.Core
         public static string Id(ModList l, string key) => l.Name + "|" + key;
 
         public static bool Kept(ModList l, OptionSpec o) =>
-            o.HasValue && o.Kind != Kind.Key && o.Key != l.ProfileKey && !l.MenuOwned.Contains(o.Key);
+            o.HasValue && !l.MenuOwned.Contains(o.Key);
 
         public static Dictionary<string, object> Snapshot(IEnumerable<ModState> states)
         {
@@ -66,6 +67,7 @@ namespace Hd2ModSettingGui.Core
             {
                 case Kind.Toggle: return raw is bool b ? (object)b : null;
                 case Kind.Color: return raw is string s && Protocol.IsHex(s) ? s.ToLowerInvariant() : null;
+                case Kind.Key: return raw is string k ? Protocol.KeyName(k) : null;
                 case Kind.Choice:
                 {
                     var d = Protocol.ToDouble(raw);

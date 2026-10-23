@@ -175,6 +175,10 @@ namespace Hd2ModSettingGui.Tests
                 Assert.Null(ModList.Load(Make("c", ",\"profile\":\"fov\"", "choice")).ProfileKey);        // not a choice
                 Assert.Null(ModList.Load(Make("d", ",\"profile\":\"nothing\"", "choice")).ProfileKey);    // no such setting
                 Assert.Null(ModList.Load(Make("e", ",\"profile\":\"cam_profile\"", "toggle")).ProfileKey);
+                // the window's own profiles: only for a mod that asks for them
+                Assert.True(ModList.Load(Make("f", ",\"profiles\":true", "choice")).Profiles);
+                Assert.False(ModList.Load(Make("g", ",\"profiles\":\"yes\"", "choice")).Profiles);
+                Assert.False(ModList.Load(Path.Combine(f.Dir, "a_options.json")).Profiles);
                 // a reset says whether it made a step (the window's undo counts on it)
                 var s = new ModState(ModList.Load(Path.Combine(f.Dir, "a_options.json")));
                 Assert.False(s.Reset(new[] { "part" }));
@@ -193,7 +197,7 @@ namespace Hd2ModSettingGui.Tests
                 "{\"key\":\"sway\",\"type\":\"toggle\",\"default\":true}," +
                 "{\"key\":\"tint\",\"type\":\"color\",\"default\":\"#ffffff\"}," +
                 "{\"key\":\"part\",\"type\":\"heading\",\"en\":[\"Part\",\"\"]}]," +
-                "\"menu_owned\":[]}");
+                "\"menu_owned\":[\"sway\"]}");
             File.WriteAllText(Path.Combine(f.Dir, "cam_options.json"), "{\"title\":\"Cam\",\"options\":[" +
                 "{\"key\":\"k_go\",\"type\":\"key\",\"default\":\"f6\"}," +
                 "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"choices\":[[\"A\",\"A\"],[\"B\",\"B\"],[\"C\",\"C\"]]}]}");
@@ -201,31 +205,40 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
-        public void A_profile_keeps_the_values_but_keys_and_the_mods_own_profile()
+        public void A_profile_keeps_every_setting_but_those_another_menu_holds()
         {
             using (var f = new Folder(false))
             {
+                // (the user, 10-24: the mod's own profile picked in one profile came back in every other)
                 var lists = TwoLists(f);
                 lists[0].Set("fov", 90.0);
                 lists[0].Set("cam_profile", 2.0);
                 lists[1].Set("mode", 3.0);
+                lists[1].Set("k_go", "f7");
                 var snap = ProfileSet.Snapshot(lists);
-                Assert.Equal(new[] { "cam|mode", "mom_cam|fov", "mom_cam|sway", "mom_cam|tint" }, snap.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+                Assert.Equal(new[] { "cam|k_go", "cam|mode", "mom_cam|cam_profile", "mom_cam|fov", "mom_cam|tint" },
+                             snap.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
                 Assert.Equal(90.0, snap["mom_cam|fov"]);
-                // put back: only what differs, per list; the mod's profile and the keys untouched
+                Assert.Equal(2.0, snap["mom_cam|cam_profile"]);
+                Assert.Equal("f7", snap["cam|k_go"]);
+                // put back: only what differs, per list
                 var p = new Profile { Name = "a", Values = snap };
                 lists[0].Set("fov", 60.0);
                 lists[0].Set("cam_profile", 1.0);
                 lists[1].Set("k_go", "q");
                 var changes = ProfileSet.Changes(p, lists);
-                Assert.Single(changes);
+                Assert.Equal(2, changes.Count);
                 Assert.Same(lists[0], changes[0].St);
-                Assert.Equal(new Dictionary<string, object> { ["fov"] = 90.0 }, changes[0].Patch);
-                // a value that no longer fits its setting is left out, never written
+                Assert.Equal(new Dictionary<string, object> { ["cam_profile"] = 2.0, ["fov"] = 90.0 }, changes[0].Patch);
+                Assert.Equal(new Dictionary<string, object> { ["k_go"] = "f7" }, changes[1].Patch);
+                // a value that no longer fits its setting is left out, never written; one another menu holds too
                 p.Values["mom_cam|fov"] = "wide";
                 p.Values["cam|mode"] = 7.0;
                 p.Values["mom_cam|tint"] = "#ABCDEF";
                 p.Values["mom_cam|gone"] = 1.0;
+                p.Values["mom_cam|sway"] = false;
+                p.Values["mom_cam|cam_profile"] = 1.0;
+                p.Values["cam|k_go"] = "Q";
                 changes = ProfileSet.Changes(p, lists);
                 Assert.Single(changes);
                 Assert.Equal(new Dictionary<string, object> { ["tint"] = "#abcdef" }, changes[0].Patch);

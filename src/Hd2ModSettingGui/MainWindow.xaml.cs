@@ -129,7 +129,9 @@ namespace Hd2ModSettingGui
             members.Clear();
             members.AddRange(order);
             state = members.FirstOrDefault();
-            profiles = ProfileSet.Load(Environs.LoadConfig(), title);
+            // the window's profiles only for a mod that asks for them ("profiles": true);
+            // one that stops asking keeps them in the config, unused
+            profiles = members.Any(m => m.List.Profiles) ? ProfileSet.Load(Environs.LoadConfig(), title) : new ProfileSet();
             query = "";
             if (build) Build();
         }
@@ -233,7 +235,7 @@ namespace Hd2ModSettingGui
             var ver = state.List.Version;
             var num = System.Text.RegularExpressions.Regex.Match(ver ?? "", @"(\d+(?:\.\d+)+)\s*$");
             meta.Children.Add(Text(num.Success ? "v" + num.Groups[1].Value : ver, "MonoText"));
-            meta.Children.Add(Text("  ·  " + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue))), fg: B("Muted"), size: 12));
+            meta.Children.Add(Text((string.IsNullOrEmpty(ver) ? "" : "  ·  ") + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue))), fg: B("Muted"), size: 12));
             titles.Children.Add(meta);
             titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Zh), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
@@ -246,9 +248,13 @@ namespace Hd2ModSettingGui
             var headBox = new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(0, 0, 0, 1), Child = head };
             DockPanel.SetDock(headBox, Dock.Top);
             main.Children.Add(headBox);
-            var profileBar = ProfilesBar();
-            DockPanel.SetDock(profileBar, Dock.Top);
-            main.Children.Add(profileBar);
+            chipRow = null;
+            if (members.Any(m => m.List.Profiles))       // only a mod that asks for them
+            {
+                var profileBar = ProfilesBar();
+                DockPanel.SetDock(profileBar, Dock.Top);
+                main.Children.Add(profileBar);
+            }
             var content = new Grid { Background = B("Ground700") };
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -562,6 +568,14 @@ namespace Hd2ModSettingGui
         // its values into the mod's files at once, as one step per list (undone like any change)
         void UseProfile(int i)
         {
+            // what was just changed belongs to the profile left: a number still
+            // typed is taken, a change still waiting is written (and kept in it)
+            Keyboard.ClearFocus();
+            if (writeTimer.IsEnabled)
+            {
+                writeTimer.Stop();
+                Write();
+            }
             var changes = ProfileSet.Changes(profiles.Items[i], members);
             foreach (var (st, patch) in changes)
             {
@@ -653,7 +667,9 @@ namespace Hd2ModSettingGui
                 }
                 case Kind.Choice:
                 {
-                    var seg = new StackPanel { Orientation = Orientation.Horizontal };
+                    // wrapped onto more lines when they do not fit (the user, 10-24: ActionCam's
+                    // seven profiles ran under the reset icon and were cut off)
+                    var seg = new WrapPanel();
                     var group_ = "c_" + Id(st, key);
                     var buttons = new List<RadioButton>();
                     bool quiet = false;
