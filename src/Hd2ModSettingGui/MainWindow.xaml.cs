@@ -214,12 +214,16 @@ namespace Hd2ModSettingGui
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
             // the mods
-            var nav = new StackPanel { Margin = new Thickness(16, 24, 16, 16) };
-            nav.Children.Add(Text(Texts.Get("filter"), "Label", margin: null));
-            nav.Children.Add(Spaced(Input(Texts.Get("mod_ph"), modQuery, v => { modQuery = v; RenderMods(); }), 6, 16));
-            nav.Children.Add(Text(Texts.Get("installed"), "Label"));
+            // the list scrolls under its fixed head (the user, 10-24: a long one ran out of room)
+            var nav = new DockPanel { Margin = new Thickness(16, 24, 16, 16) };
+            var navHead = new StackPanel();
+            navHead.Children.Add(Text(Texts.Get("filter"), "Label", margin: null));
+            navHead.Children.Add(Spaced(Input(Texts.Get("mod_ph"), modQuery, v => { modQuery = v; RenderMods(); }), 6, 16));
+            navHead.Children.Add(Text(Texts.Get("installed"), "Label"));
+            DockPanel.SetDock(navHead, Dock.Top);
+            nav.Children.Add(navHead);
             navList = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-            nav.Children.Add(navList);
+            nav.Children.Add(Scroller(navList));
             Grid.SetColumn(nav, 0);
             g.Children.Add(nav);
             var l1 = Line(true);
@@ -260,10 +264,12 @@ namespace Hd2ModSettingGui
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             content.ColumnDefinitions.Add(new ColumnDefinition());
             main.Children.Add(content);
-            var gnav = new StackPanel { Margin = new Thickness(12, 16, 0, 16) };
-            gnav.Children.Add(Spaced(Text(Texts.Get("groups"), "Label"), 0, 6, 8));
+            var gnav = new DockPanel { Margin = new Thickness(12, 16, 0, 16) };
+            var gnavHead = Spaced(Text(Texts.Get("groups"), "Label"), 0, 6, 8);
+            DockPanel.SetDock(gnavHead, Dock.Top);
+            gnav.Children.Add(gnavHead);
             groupList = new StackPanel();
-            gnav.Children.Add(groupList);
+            gnav.Children.Add(Scroller(groupList));
             content.Children.Add(gnav);
             var l2 = Line(true);
             Grid.SetColumn(l2, 1);
@@ -284,6 +290,24 @@ namespace Hd2ModSettingGui
             RenderPanel();
             return g;
         }
+
+        // a list item's name: too long, it pans while the item is hovered, or always when it is the one chosen
+        static Marquee Panning(FrameworkElement item, TextBlock name, bool chosen)
+        {
+            var m = new Marquee(name) { Active = chosen };
+            item.MouseEnter += (s, e) => m.Active = true;
+            item.MouseLeave += (s, e) => m.Active = chosen;
+            return m;
+        }
+
+        // a list that scrolls when it is longer than its room; its bar only then
+        static ScrollViewer Scroller(FrameworkElement list) => new ScrollViewer
+        {
+            Content = list,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Focusable = false,
+        };
 
         static T Spaced<T>(T e, double top, double bottom, double left = 0) where T : FrameworkElement
         {
@@ -315,12 +339,11 @@ namespace Hd2ModSettingGui
                     Margin = new Thickness(0, 2, 0, 2),
                     Cursor = cur ? null : Cursors.Hand,
                 };
-                var sp = new StackPanel();
                 // the name alone (the user, 10-23: a count of settings off their
                 // defaults read as "changed again" at every start -- gone, and the
-                // groups' dots with it; the eraser beside a setting says it)
-                sp.Children.Add(Text(title, size: 14, weight: FontWeights.SemiBold));
-                box.Child = sp;
+                // groups' dots with it; the eraser beside a setting says it);
+                // a long one pans while hovered or chosen
+                box.Child = Panning(box, Text(title, size: 14, weight: FontWeights.SemiBold), cur);
                 if (!cur) box.MouseLeftButtonUp += (s, e) => Open(entry);
                 navList.Children.Add(box);
             }
@@ -363,9 +386,9 @@ namespace Hd2ModSettingGui
                     MinHeight = 44,
                     Cursor = Cursors.Hand,
                 };
-                var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-                sp.Children.Add(Text(name, fg: on ? B("Yellow") : B("Ink"), size: 14, weight: FontWeights.SemiBold));
-                row.Child = sp;
+                var label = Panning(row, Text(name, fg: on ? B("Yellow") : B("Ink"), size: 14, weight: FontWeights.SemiBold), on);
+                label.VerticalAlignment = VerticalAlignment.Center;
+                row.Child = label;
                 int gi = index;
                 row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Title] = gi; query = ""; Build(); };
                 groupList.Children.Add(row);
@@ -396,13 +419,18 @@ namespace Hd2ModSettingGui
                 var cg = CurrentGroup();
                 list.AddRange(cg.Keys.Select(k => ((string)null, k, cg.Owner)));
             }
-            var head = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-            var meta = Text(q != "" ? Texts.Get("matches", list.Count) : "", "MonoText");
-            DockPanel.SetDock(meta, Dock.Right);
-            meta.VerticalAlignment = VerticalAlignment.Bottom;
-            head.Children.Add(meta);
-            head.Children.Add(Text(q != "" ? Texts.Get("results") : CurrentGroup().Name, size: 18, weight: FontWeights.Bold));
-            panel.Children.Add(head);
+            // a search's results get a title and their count; a group none: its name
+            // is lit in the column on the left (the user, 10-24: "不觉得多余？")
+            if (q != "")
+            {
+                var head = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+                var meta = Text(Texts.Get("matches", list.Count), "MonoText");
+                DockPanel.SetDock(meta, Dock.Right);
+                meta.VerticalAlignment = VerticalAlignment.Bottom;
+                head.Children.Add(meta);
+                head.Children.Add(Text(Texts.Get("results"), size: 18, weight: FontWeights.Bold));
+                panel.Children.Add(head);
+            }
             if (list.Count == 0)
             {
                 panel.Children.Add(Spaced(Text(Texts.Get("no_match"), fg: B("Muted")), 24, 24));
@@ -421,7 +449,9 @@ namespace Hd2ModSettingGui
                 {
                     box = null;
                     var h = new StackPanel { Margin = new Thickness(0, i == 0 ? 0 : 24, 0, 8) };
-                    h.Children.Add(Text(spec.Name.In(Texts.Zh), size: 15, weight: FontWeights.Bold));
+                    // a page's first heading that only says the page's name again: its title left out
+                    bool again = i == 0 && q == "" && spec.Name.In(Texts.Zh) == CurrentGroup().Name;
+                    if (!again) h.Children.Add(Text(spec.Name.In(Texts.Zh), size: 15, weight: FontWeights.Bold));
                     var about = spec.Hint.In(Texts.Zh);
                     if (about != "") h.Children.Add(Spaced(Text(about, "Hint"), 4, 0));
                     panel.Children.Add(h);
@@ -732,6 +762,9 @@ namespace Hd2ModSettingGui
                 case Kind.Key:
                     control = KeyControl(st, key, body, out show);
                     break;
+                case Kind.Multi:
+                    control = MultiControl(st, key, spec, out show);
+                    break;
                 default:
                     control = Text(Convert.ToString(st.Value(key), CultureInfo.InvariantCulture), fg: B("Muted"));
                     break;
@@ -937,6 +970,36 @@ namespace Hd2ModSettingGui
                 }
             };
             return sp;
+        }
+
+        // a multi-select (the user, 10-24): its choices as chips of their own,
+        // any of them taken (yellow); the value the numbers taken, "1,3"
+        FrameworkElement MultiControl(ModState st, string key, OptionSpec spec, out Action<object> show)
+        {
+            var chips = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+            var boxes = new List<CheckBox>();
+            bool quiet = false;
+            for (int i = 0; i < spec.Choices.Count; i++)
+            {
+                var cb = new CheckBox { Style = S("Chip"), Content = spec.Choices[i].Name.In(Texts.Zh), Tag = i + 1 };
+                RoutedEventHandler pick = (s, e) =>
+                {
+                    if (quiet) return;
+                    Change(st, key, string.Join(",", boxes.Where(b => b.IsChecked == true).Select(b => (int)b.Tag)), fromWidget: true);
+                };
+                cb.Checked += pick;
+                cb.Unchecked += pick;
+                boxes.Add(cb);
+                chips.Children.Add(cb);
+            }
+            show = v =>
+            {
+                quiet = true;
+                var taken = new HashSet<string>(((string)v ?? "").Split(','));
+                foreach (var b in boxes) b.IsChecked = taken.Contains(((int)b.Tag).ToString(CultureInfo.InvariantCulture));
+                quiet = false;
+            };
+            return chips;
         }
 
         // a key setting (the user, 10-23): the key shown; clicked, the next key

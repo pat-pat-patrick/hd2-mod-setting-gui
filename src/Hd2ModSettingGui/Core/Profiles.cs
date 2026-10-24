@@ -68,6 +68,7 @@ namespace Hd2ModSettingGui.Core
                 case Kind.Toggle: return raw is bool b ? (object)b : null;
                 case Kind.Color: return raw is string s && Protocol.IsHex(s) ? s.ToLowerInvariant() : null;
                 case Kind.Key: return raw is string k ? Protocol.KeyName(k) : null;
+                case Kind.Multi: return raw is string m ? Protocol.MultiValue(m, o.Choices.Count) : null;
                 case Kind.Choice:
                 {
                     var d = Protocol.ToDouble(raw);

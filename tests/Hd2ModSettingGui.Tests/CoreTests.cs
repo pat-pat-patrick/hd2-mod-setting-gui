@@ -354,6 +354,58 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_list_given_up_is_not_a_mod()
+        {
+            // (Boot Mod Loader 0.6.0) a mod no longer taking part: its list written {"stale": true, ...}
+            using (var f = new Folder(false))
+            {
+                File.WriteAllText(Path.Combine(f.Dir, "mom_cam_options.json"), "{\"stale\": true, \"options\": []}");
+                File.WriteAllText(Path.Combine(f.Dir, "cam_options.json"), "{\"title\":\"Cam\",\"options\":[]}");
+                File.WriteAllText(Path.Combine(f.Dir, "odd_options.json"), "{\"stale\": \"yes\", \"title\":\"Odd\",\"options\":[]}");
+                File.WriteAllText(Path.Combine(f.Dir, "bad_options.json"), "{ not json");
+                Assert.Equal(new[] { "bad", "cam", "odd" }, Protocol.FindMods(f.Dir).Select(m => m.Name));
+            }
+        }
+
+        [Fact]
+        public void A_multi_select_keeps_the_choices_taken()
+        {
+            // (the user, 10-24: a choice of 8 that was every mix of 3 parts) any of its choices
+            // taken; written as their numbers, ascending, each once ("1,3"; "" none)
+            Assert.Equal("1,3", Protocol.MultiValue(" 3, 1,3,9,x,0,1.5", 3));
+            Assert.Equal("", Protocol.MultiValue("", 3));
+            Assert.Equal("2,3", Protocol.MultiValue(new List<object> { 3.0, 2.0 }, 3));
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"options\":[" +
+                    "{\"key\":\"bold\",\"type\":\"multi\",\"default\":[1,3],\"name\":\"Bold\",\"choices\":[\"Kills\",\"Score\",\"Bonus\"]}," +
+                    "{\"key\":\"none\",\"type\":\"multi\",\"name\":\"None\",\"choices\":[\"A\",\"B\"]}]," +
+                    "\"translations\":{\"zh-Hans\":{\"bold.2\":\"总得分\"}}}");
+                File.WriteAllText(Path.Combine(f.Dir, "demo_settings.txt"), "bold=2, 1\nnone=\n#end\n");
+                var s = new ModState(ModList.Load(path));
+                Assert.Equal(Kind.Multi, s.List.Spec("bold").Kind);
+                Assert.Equal("总得分", s.List.Spec("bold").Choices[1].Name.In(true));
+                Assert.Equal("1,3", s.List.Spec("bold").DefaultValue);
+                Assert.Equal("", s.List.Spec("none").DefaultValue);              // no default: none taken
+                Assert.Equal("1,2", s.Value("bold"));                             // read as written, put in order
+                Assert.True(s.IsChanged("bold"));
+                s.Set("bold", "3");
+                s.Set("none", "");
+                s.Save();
+                var back = File.ReadAllText(Path.Combine(f.Dir, "demo_settings.txt"));
+                Assert.Contains("bold=3\n", back);
+                Assert.Contains("none=\n", back);
+                s.Reset(new[] { "bold" });
+                Assert.Equal("1,3", s.Value("bold"));
+                // a profile keeps it and puts it back
+                var p = new Profile { Name = "p", Values = ProfileSet.Snapshot(new[] { s }) };
+                s.Set("bold", "");
+                Assert.Equal("1,3", ProfileSet.Changes(p, new[] { s }).Single().Patch["bold"]);
+            }
+        }
+
+        [Fact]
         public void The_peek_only_where_the_mod_asks_for_it()
         {
             using (var f = new Folder(false))

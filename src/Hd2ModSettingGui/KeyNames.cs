@@ -52,6 +52,23 @@ namespace Hd2ModSettingGui
             }
         }
 
+        // (the user, 10-24: "equal" and "minus" in a Chinese window) as on the keycap:
+        // a sign as the sign, an arrow as an arrow
+        static readonly Dictionary<string, string> Signs = new Dictionary<string, string>
+        {
+            ["backtick"] = "`", ["minus"] = "-", ["equal"] = "=", ["open bracket"] = "[", ["close bracket"] = "]",
+            ["backslash"] = "\\", ["semicolon"] = ";", ["quote"] = "'", ["comma"] = ",", ["period"] = ".", ["slash"] = "/",
+            ["up"] = "↑", ["down"] = "↓", ["left"] = "←", ["right"] = "→",
+        };
+
+        // the keys whose keycap is a word: in Chinese, the word Chinese players say
+        static readonly Dictionary<string, string> Chinese = new Dictionary<string, string>
+        {
+            ["space"] = "空格", ["enter"] = "回车", ["backspace"] = "退格",
+            ["left shift"] = "左 Shift", ["right shift"] = "右 Shift", ["left ctrl"] = "左 Ctrl", ["right ctrl"] = "右 Ctrl",
+            ["left alt"] = "左 Alt", ["right alt"] = "右 Alt",
+        };
+
         /// <summary>A key's name as shown: as on the keycap, the mouse's in words.</summary>
         public static string Label(string name)
         {
@@ -60,8 +77,9 @@ namespace Hd2ModSettingGui
                 case "mouse 3": return Texts.Get("mouse_middle");
                 case "mouse 4": return Texts.Get("mouse_side", 1);
                 case "mouse 5": return Texts.Get("mouse_side", 2);
-                case "backtick": return "`";
             }
+            if (Signs.TryGetValue(name, out var sign)) return sign;
+            if (Texts.Zh && Chinese.TryGetValue(name, out var zh)) return zh;
             if (name.StartsWith("numpad ")) return "Num " + name.Substring(7).ToUpperInvariant();
             if (name.Length <= 3) return name.ToUpperInvariant();
             return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name);

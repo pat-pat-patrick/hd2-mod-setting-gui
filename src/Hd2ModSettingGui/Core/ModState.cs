@@ -70,6 +70,7 @@ namespace Hd2ModSettingGui.Core
                 case Kind.Toggle: return v is bool b ? b : spec.DefaultValue;
                 case Kind.Color: return v is string s && Protocol.IsHex(s) ? s : spec.DefaultValue;
                 case Kind.Key: return v is string k ? k : spec.DefaultValue;
+                case Kind.Multi: return v is string m ? m : spec.DefaultValue;
                 default: return v is double d ? d : spec.DefaultValue;
             }
         }

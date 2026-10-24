@@ -217,6 +217,37 @@
       </Setter>
     </Style>
 
+    <!-- a multi-select's choice: a chip of its own (apart from the others: any
+         of them may be taken), yellow while taken -->
+    <Style x:Key="Chip" TargetType="CheckBox">
+      <Setter Property="FontFamily" Value="{StaticResource Ui}"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Margin" Value="0,3,6,3"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <Border x:Name="b" Background="Transparent" BorderBrush="{StaticResource Grid}" BorderThickness="1" Padding="12,0" MinHeight="34">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="Background" Value="{StaticResource Grid}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="b" Property="Background" Value="{StaticResource Yellow}"/>
+                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Yellow}"/>
+                <Setter Property="Foreground" Value="{StaticResource TapeInk}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- the right-click menu: a plain dark list -->
     <Style TargetType="ContextMenu">
       <Setter Property="OverridesDefaultStyle" Value="True"/>

@@ -128,6 +128,7 @@ An example:
 | `menu_owned` | no | Keys another menu holds. They are shown, but can't be changed here. |
 | `profile` | no | See *Optional features*. |
 | `profiles` | no | See *Optional features*. |
+| `stale` | no | `true`: the list is no longer in use (its mod stopped taking part). The window skips it. |
 
 #### A setting
 
@@ -139,6 +140,7 @@ in it starts a new line.
 |---|---|---|
 | `toggle` | `true` / `false` | |
 | `choice` | `1` .. the number of choices | `choices`: `["Off", "On"]` |
+| `multi` | the numbers of the choices taken, ascending, joined by `,`: `1,3`; empty for none (window 1.10.0) | `choices`: `["Kill info", "Total score", "Bonus"]`; `default` as a list: `[1, 3]` |
 | `slider` | a number | `min`, `max`, `step` |
 | `color` | `#rrggbb` | `choices` (optional presets): `[["#5ee7ff", "Cyan"]]`. Any other colour can be picked or typed. |
 | `key` | the game's name for a key: `q`, `f6`, `numpad 1`, `page up`, `left ctrl` (what `Keyboard.button_name` gives); `mouse 3` for the middle mouse button, `mouse 4` / `mouse 5` for the side ones; empty for none | |
@@ -307,6 +309,7 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 | `menu_owned` | 否 | 由别的菜单管理的设置。会显示，但不能在这里改。 |
 | `profile` | 否 | 见"可选功能"。 |
 | `profiles` | 否 | 见"可选功能"。 |
+| `stale` | 否 | `true`：这份清单已经不用了（它的 mod 不再接入），窗口会跳过它。 |
 
 ##### 一项设置
 
@@ -317,6 +320,7 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 |---|---|---|
 | `toggle` | `true` / `false` | |
 | `choice` | `1` 到选项个数 | `choices`：`["Off", "On"]` |
+| `multi` | 选中选项的序号，从小到大，用 `,` 连接：`1,3`；一个都不选为空（窗口 1.10.0 起） | `choices`：`["Kill info", "Total score", "Bonus"]`；`default` 写成数组：`[1, 3]` |
 | `slider` | 数字 | `min`、`max`、`step` |
 | `color` | `#rrggbb` | `choices`（可选的预设颜色）：`[["#5ee7ff", "Cyan"]]`。其他颜色也能选或直接输入。 |
 | `key` | 游戏自己的按键名：`q`、`f6`、`numpad 1`、`page up`、`left ctrl`（即 `Keyboard.button_name` 给出的名字）；鼠标中键 `mouse 3`，侧键 `mouse 4` / `mouse 5`；空值表示未设置 | |

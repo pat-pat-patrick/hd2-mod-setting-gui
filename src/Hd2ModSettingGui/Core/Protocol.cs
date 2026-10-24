@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace Hd2ModSettingGui.Core
 {
-    public enum Kind { Toggle, Choice, Slider, Color, Key, Heading, Text, Unknown }
+    public enum Kind { Toggle, Choice, Slider, Color, Key, Multi, Heading, Text, Unknown }
 
     /// <summary>A text of the mod's: its own, as the list writes it (English
     /// unless the mod wrote it in another language), and its translations by
@@ -104,6 +104,7 @@ namespace Hd2ModSettingGui.Core
                     case Kind.Toggle: return Default is bool b && b;
                     case Kind.Color: return Default is string s && Protocol.IsHex(s) ? s.ToLowerInvariant() : "#ffffff";
                     case Kind.Key: return Protocol.KeyName(Default as string);
+                    case Kind.Multi: return Protocol.MultiValue(Default, Choices.Count);
                     default: return Protocol.ToDouble(Default) ?? 0.0;
                 }
             }
@@ -282,6 +283,22 @@ namespace Hd2ModSettingGui.Core
 
         public static bool IsHex(string s) => s != null && Hex.IsMatch(s);
 
+        /// <summary>A multi-select's value (the user, 10-24: a choice of 8 that was
+        /// every mix of 3 parts): the numbers of the choices taken, ascending, each
+        /// once, joined by "," ("1,3"; "" none). Read from that text (spaces, any
+        /// order, a number out of 1..count dropped) or from a list of numbers.</summary>
+        public static string MultiValue(object v, int count)
+        {
+            IEnumerable<double?> parts;
+            if (v is string s) parts = s.Split(',').Select(p => ToDouble(p.Trim()));
+            else if (v is IList l) parts = l.Cast<object>().Select(ToDouble);
+            else return "";
+            var taken = new SortedSet<int>();
+            foreach (var d in parts)
+                if (d.HasValue && d.Value % 1 == 0 && d.Value >= 1 && d.Value <= count) taken.Add((int)d.Value);
+            return string.Join(",", taken);
+        }
+
         /// <summary>A key setting's value: the key's name, lower case; "" not set.</summary>
         public static string KeyName(string s) => (s ?? "").Trim().ToLowerInvariant();
 
@@ -294,6 +311,7 @@ namespace Hd2ModSettingGui.Core
                 case "slider": return Kind.Slider;
                 case "color": return Kind.Color;
                 case "key": return Kind.Key;
+                case "multi": return Kind.Multi;
                 case "heading": return Kind.Heading;
                 case "text": return Kind.Text;
                 default: return Kind.Unknown;
@@ -322,12 +340,28 @@ namespace Hd2ModSettingGui.Core
             {
                 foreach (var f in Directory.GetFiles(folder, "*" + OptionsSuffix).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
                 {
+                    if (IsStale(f)) continue;
                     var n = Path.GetFileName(f);
                     list.Add((n.Substring(0, n.Length - OptionsSuffix.Length), f));
                 }
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException) { }
             return list;
+        }
+
+        /// <summary>A list its writer has given up ("stale": true; Boot Mod Loader 0.6.0
+        /// writes {"stale": true, "options": []} for a mod no longer taking part
+        /// where it cannot rename the file): not a mod. Only a small file can be one,
+        /// so the lists in use are not read at every look.</summary>
+        public static bool IsStale(string path)
+        {
+            try
+            {
+                if (new FileInfo(path).Length > 1024) return false;
+                return Json.Parse(File.ReadAllText(path, Encoding.UTF8)) is IDictionary<string, object> root
+                       && root.TryGetValue("stale", out var s) && s is bool b && b;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is FormatException || e is ArgumentException) { return false; }
         }
 
         /// <summary>key -> raw text, from a key=value file (missing: empty).</summary>
@@ -393,6 +427,7 @@ namespace Hd2ModSettingGui.Core
                 case Kind.Toggle: return raw == "true";
                 case Kind.Color: return IsHex(raw) ? raw.ToLowerInvariant() : null;
                 case Kind.Key: return KeyName(raw);
+                case Kind.Multi: return MultiValue(raw, spec.Choices.Count);
                 default: return ToDouble(raw);
             }
         }
