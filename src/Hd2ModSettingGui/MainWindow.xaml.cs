@@ -78,18 +78,23 @@ namespace Hd2ModSettingGui
         }
 
         // ---------------------------------------------------------------- loading
-        void Load()
+        string trStamp = "";            // the translation packs' files as last loaded
+        int langLook;                   // the game's language looked at every 5 s (it is changed in the game, rarely)
+
+        void Load(bool texts = false)
         {
             Watch();
+            trStamp = Protocol.TranslationStamp(folder);
+            Protocol.GameTag = Environs.GameLanguageTag(folder);
             mods = Protocol.FindMods(folder);
             found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
             var open = state?.List.Title;
             if (open != null && !Entries().Contains(open)) open = null;
             // the mod open stays as it is (its undo with it) while its lists are the same
             if (open == null) { members.Clear(); state = null; }
-            else if (!MembersOf(open).Select(i => mods[i].Name).OrderBy(n => n)
+            else if (texts || !MembersOf(open).Select(i => mods[i].Name).OrderBy(n => n)
                          .SequenceEqual(members.Select(m => m.List.Name).OrderBy(n => n)))
-                Open(open, build: false);
+                Open(open, build: false);       // (texts: a translation pack changed, the open mod read again)
             if (state == null && mods.Count > 0) Open(Entries()[0], build: false);
             Build();
         }
@@ -1283,6 +1288,8 @@ namespace Hd2ModSettingGui
             // a list that appears (or goes) is loaded: the same ones leave all as it is
             var now = Protocol.FindMods(folder).Select(m => m.Name).ToList();
             if (!now.SequenceEqual(mods.Select(m => m.Name))) Load();
+            else if (!writeTimer.IsEnabled && (Protocol.TranslationStamp(folder) != trStamp
+                     || (++langLook % 5 == 0 && Environs.GameLanguageTag(folder) != Protocol.GameTag))) Load(texts: true);
             // the file changed in the game (and none of ours waits to be written): shown, not written back
             // (the profile switched: the mod puts that profile's values in its file, read back here)
             else TakeBack();

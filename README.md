@@ -171,6 +171,26 @@ translation shows in English, and an entry that matches nothing is
 ignored. Lists in the old form (`"en": [name, hint]`, `"zh": [...]`,
 `title_zh`) still work.
 
+#### A translation of someone else's mod
+
+A translator can put a file of their own beside a mod's list:
+`<name>_translations.json`, where `<name>` is the list's name. It holds the
+same tables as `translations`:
+
+```json
+{
+  "zh-Hans": { "title": "我的模组", "size": "大小", "size.hint": "整体大小。", "palette.1": "彩色" }
+}
+```
+
+- A table is named by a language tag, as in `translations`, or `"game"`: the
+  texts are in whatever language the game shows, which the window reads from
+  the game's own settings (`saves\*_user_settings.config`). When it cannot be
+  read, a `"game"` table is not used.
+- It fills in what the list itself does not translate; the list's own
+  translations win.
+- The window reads it again within a second when it changes.
+
 #### Optional features
 
 - **`"peek": true` on a setting.** While the player changes it, the window
@@ -345,6 +365,22 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 
 窗口按自己的界面语言显示对应的翻译。没有翻译的显示英文，对不上任何设置的条目会被忽略。
 旧写法（`"en": [名称, 说明]`、`"zh": [...]`、`title_zh`）照样能读。
+
+##### 给别人的 mod 做翻译
+
+翻译作者可以在 mod 清单旁边放一个自己的文件：`<名字>_translations.json`，`<名字>` 和清单的名字相同。
+内容和 `translations` 一样：
+
+```json
+{
+  "zh-Hans": { "title": "我的模组", "size": "大小", "size.hint": "整体大小。", "palette.1": "彩色" }
+}
+```
+
+- 每张表用语言代码命名（和 `translations` 一样），也可以写 `"game"`：表示文字是游戏当前显示的语言。
+  窗口会从游戏自己的设置（`saves\*_user_settings.config`）读出是哪种语言；读不到时不使用 `"game"` 表。
+- 它只补清单自己没翻译的部分，清单自带的翻译优先。
+- 文件有变化时，窗口一秒内重新载入。
 
 ##### 可选功能
 

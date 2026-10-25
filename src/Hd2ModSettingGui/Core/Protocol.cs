@@ -241,6 +241,19 @@ namespace Hd2ModSettingGui.Core
                     if (lang.Value is IDictionary<string, object> table)
                         foreach (var kv in table)
                             if (kv.Value is string text && text.Trim() != "") m.Translate(lang.Key, kv.Key, text, pageAt);
+            // (the user, 10-25) a translation pack's file beside the list,
+            // <name>_translations.json, the same tables as "translations": it fills
+            // in what the list's own translations lack (the mod's own text wins)
+            try
+            {
+                var extra = Path.Combine(m.Folder, name + Protocol.TranslationsSuffix);
+                if (File.Exists(extra) && Json.Parse(File.ReadAllText(extra, Encoding.UTF8)) is IDictionary<string, object> pack)
+                    foreach (var lang in pack)
+                        if (lang.Value is IDictionary<string, object> table)
+                            foreach (var kv in table)
+                                if (kv.Value is string text && text.Trim() != "") m.Translate(lang.Key, kv.Key, text, pageAt, fill: true);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is FormatException) { }
             return m;
         }
 
@@ -248,8 +261,14 @@ namespace Hd2ModSettingGui.Core
         // "title", "page.<n>" (the nth page), "<key>" (a setting's name),
         // "<key>.hint", "<key>.<n>" (its nth choice or colour). A key a list
         // does not have is left out.
-        void Translate(string lang, string what, string text, Dictionary<int, Page> pageAt)
+        void Translate(string lang, string what, string text, Dictionary<int, Page> pageAt, bool fill = false)
         {
+            // (Boot Mod Loader 0.11.0) "game": the texts in whatever language the game shows
+            if (string.Equals(lang, "game", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Protocol.GameTag == null) return;
+                lang = Protocol.GameTag;
+            }
             Pair target = null;
             int dot = what.IndexOf('.');
             string head = dot < 0 ? what : what.Substring(0, dot), tail = dot < 0 ? null : what.Substring(dot + 1);
@@ -263,7 +282,7 @@ namespace Hd2ModSettingGui.Core
                 else if (int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= o.Choices.Count)
                     target = o.Choices[n - 1].Name;
             }
-            if (target != null) target.Tr[lang] = text;
+            if (target != null && !(fill && target.Tr.ContainsKey(lang))) target.Tr[lang] = text;
         }
 
         static string Item(IList l, int i) => l != null && l.Count > i && l[i] is string s ? s : "";
@@ -274,8 +293,26 @@ namespace Hd2ModSettingGui.Core
     public static class Protocol
     {
         public const string OptionsSuffix = "_options.json";
+        public const string TranslationsSuffix = "_translations.json";
+
+        /// <summary>The translation packs' files in the folder, as names and times:
+        /// a change in it (a pack written, updated or gone) reloads the lists.</summary>
+        public static string TranslationStamp(string folder)
+        {
+            try
+            {
+                return string.Join("|", Directory.GetFiles(folder, "*" + TranslationsSuffix).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                    .Select(f => Path.GetFileName(f) + "@" + File.GetLastWriteTimeUtc(f).Ticks.ToString(CultureInfo.InvariantCulture)));
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException) { return ""; }
+        }
         /// <summary>The language tags the window looks for, in order (CowboyBingus's tags).</summary>
         public static readonly string[] ChineseTags = { "zh-Hans", "zh", "zh-CN" }, EnglishTags = { "en" };
+
+        /// <summary>The game's text language (set by the window, Environs.GameLanguageTag):
+        /// a translation table under "game" is taken as that language's. null: not known,
+        /// such tables are left out (their language cannot be told).</summary>
+        public static string GameTag;
         public const string EndMark = "#end";
         public const string AppliedMark = "settings window: applied";
         static readonly Regex Hex = new Regex("^#[0-9a-fA-F]{6}$");

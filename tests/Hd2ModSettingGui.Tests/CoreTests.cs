@@ -354,6 +354,73 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_translation_pack_file_fills_in_what_the_list_lacks()
+        {
+            // (the user, 10-25) <name>_translations.json beside the list, the same tables as
+            // "translations": what the list has no translation for is taken from it
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "cam_options.json");
+                File.WriteAllText(path, "{\"title\":\"Cam\",\"options\":[" +
+                    "{\"key\":\"dist\",\"type\":\"slider\",\"min\":0,\"max\":2,\"default\":0,\"name\":\"Distance\",\"hint\":\"How far.\"}," +
+                    "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"name\":\"Mode\",\"choices\":[\"Off\",\"On\"]}]," +
+                    "\"translations\":{\"zh-Hans\":{\"mode\":\"模式（作者）\"}}}");
+                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                File.WriteAllText(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix),
+                    "{\"zh-Hans\":{\"title\":\"镜头\",\"dist\":\"距离\",\"dist.hint\":\"多远。\",\"mode\":\"模式（包）\",\"mode.2\":\"开\",\"gone\":\"无\"}}");
+                var m = ModList.Load(path);
+                Assert.Equal("镜头", m.TitleIn(true));
+                Assert.Equal("Cam", m.Title);                                     // the mod's identity stays its own
+                Assert.Equal(("距离", "多远。"), (m.Spec("dist").Name.In(true), m.Spec("dist").Hint.In(true)));
+                Assert.Equal("模式（作者）", m.Spec("mode").Name.In(true));       // the mod's own translation wins
+                Assert.Equal(new[] { "Off", "开" }, m.Spec("mode").Choices.Select(c => c.Name.In(true)));
+                Assert.Equal("Distance", m.Spec("dist").Name.In(false));
+                var before = Protocol.TranslationStamp(f.Dir);
+                File.WriteAllText(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix), "{ broken");
+                File.SetLastWriteTimeUtc(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix), DateTime.UtcNow.AddMinutes(1));
+                Assert.NotEqual(before, Protocol.TranslationStamp(f.Dir));           // a change is seen
+                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));   // a bad file: the list as it is
+            }
+        }
+
+        [Fact]
+        public void The_game_language_and_a_table_under_game()
+        {
+            // (Boot Mod Loader 0.11.0) a translation written as "game": the game's text
+            // language, read from its account settings file
+            using (var f = new Folder(false))
+            {
+                Assert.Null(Environs.GameLanguageTag(f.Dir));                       // no saves: not known
+                var saves = Path.Combine(f.Dir, "saves");
+                Directory.CreateDirectory(saves);
+                var cfg = Path.Combine(saves, "5f50_user_settings.config");
+                File.WriteAllText(cfg, "vo_language = \"us\"\nplatform_language = \"us\"\n  language = \"cn\"\n");
+                File.WriteAllText(cfg + ".old", "language = \"ru\"\n");             // the copy beside it: skipped
+                File.SetLastWriteTimeUtc(cfg + ".old", DateTime.UtcNow.AddMinutes(5));
+                Assert.Equal("zh-Hans", Environs.GameLanguageTag(f.Dir));
+                File.WriteAllText(cfg, "vo_language = \"cn\"\nlanguage = \"tc\"\n");
+                Assert.Equal("zh-Hant", Environs.GameLanguageTag(f.Dir));
+                File.WriteAllText(cfg, "language = \"xx\"\n");
+                Assert.Equal("xx", Environs.GameLanguageTag(f.Dir));                // an unknown code as it is
+
+                var path = Path.Combine(f.Dir, "cam_options.json");
+                File.WriteAllText(path, "{\"title\":\"Cam\",\"options\":[{\"key\":\"dist\",\"type\":\"slider\",\"min\":0,\"max\":2,\"default\":0,\"name\":\"Distance\"}]}");
+                File.WriteAllText(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix), "{\"game\":{\"dist\":\"距离\"}}");
+                var was = Protocol.GameTag;
+                try
+                {
+                    Protocol.GameTag = "zh-Hans";
+                    Assert.Equal("距离", ModList.Load(path).Spec("dist").Name.In(true));
+                    Protocol.GameTag = "ru";                                        // the game in Russian: not the Chinese window's
+                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                    Protocol.GameTag = null;                                        // not known: left out
+                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                }
+                finally { Protocol.GameTag = was; }
+            }
+        }
+
+        [Fact]
         public void A_list_given_up_is_not_a_mod()
         {
             // (Boot Mod Loader 0.6.0) a mod no longer taking part: its list written {"stale": true, ...}
