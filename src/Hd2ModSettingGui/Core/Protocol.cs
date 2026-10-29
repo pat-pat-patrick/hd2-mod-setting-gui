@@ -297,11 +297,17 @@ namespace Hd2ModSettingGui.Core
 
         /// <summary>The translation packs' files in the folder, as names and times:
         /// a change in it (a pack written, updated or gone) reloads the lists.</summary>
-        public static string TranslationStamp(string folder)
+        public static string TranslationStamp(string folder) => Stamp(folder, "*" + TranslationsSuffix);
+
+        /// <summary>The lists' files, as names and times (the user, 10-26: a mod's new
+        /// version rewrote its list and the window showed the old one): a change reloads them.</summary>
+        public static string ListStamp(string folder) => Stamp(folder, "*" + OptionsSuffix);
+
+        static string Stamp(string folder, string pattern)
         {
             try
             {
-                return string.Join("|", Directory.GetFiles(folder, "*" + TranslationsSuffix).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                return string.Join("|", Directory.GetFiles(folder, pattern).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                     .Select(f => Path.GetFileName(f) + "@" + File.GetLastWriteTimeUtc(f).Ticks.ToString(CultureInfo.InvariantCulture)));
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException) { return ""; }

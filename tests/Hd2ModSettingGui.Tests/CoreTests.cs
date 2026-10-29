@@ -421,6 +421,22 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_newer_release_by_its_tag()
+        {
+            Assert.Equal(new Version(1, 12, 0), Updates.ParseTag("v1.12.0"));
+            Assert.Equal(new Version(1, 13, 2), Updates.ParseTag(" 1.13.2 "));
+            Assert.Null(Updates.ParseTag("latest"));
+            Assert.Null(Updates.ParseTag(""));
+            var mine = new Version(1, 12, 0, 0);                                    // the window's own: a revision 0
+            Assert.False(Updates.IsNewer(Updates.ParseTag("v1.12.0"), mine));
+            Assert.False(Updates.IsNewer(Updates.ParseTag("v1.11.9"), mine));
+            Assert.True(Updates.IsNewer(Updates.ParseTag("v1.12.1"), mine));
+            Assert.True(Updates.IsNewer(Updates.ParseTag("v1.13.0"), mine));
+            Assert.True(Updates.IsNewer(Updates.ParseTag("v2.0"), mine));
+            Assert.False(Updates.IsNewer(null, mine));
+        }
+
+        [Fact]
         public void A_list_given_up_is_not_a_mod()
         {
             // (Boot Mod Loader 0.6.0) a mod no longer taking part: its list written {"stale": true, ...}

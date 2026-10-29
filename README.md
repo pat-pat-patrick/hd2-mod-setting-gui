@@ -62,8 +62,14 @@ Two text files in the game's own settings folder,
 
 It also reads the end of `<mod>.log` for the status line, and the names in
 Windows' list of running programs to see whether `helldivers2.exe` is
-running. It does not open the game's process, read its memory, inject
-anything, or go on the network.
+running. It does not open the game's process, read its memory or inject
+anything.
+
+It goes online for one thing only: at start and every 6 hours it asks
+GitHub for the number of the latest release, and when a newer one is out,
+a red dot appears on the Settings button. Nothing is downloaded. Turn it
+off in the window's settings ("Check for updates automatically"); the
+"Check for updates" button there asks once.
 
 If the game's Mod Options Menu holds a setting, that setting is set there;
 the window shows it and says so.
@@ -272,8 +278,11 @@ MIT -- see `LICENSE`.
   `#end`；模组如果正好读到写了一半的内容，没有 `#end` 就会等下一次再读。
 
 另外会读 `<模组>.log` 的末尾来显示状态，并查看 Windows 正在运行的程序名单里
-有没有 `helldivers2.exe`。它不打开游戏进程、不读游戏内存、不注入任何东西，
-也不联网。
+有没有 `helldivers2.exe`。它不打开游戏进程、不读游戏内存、不注入任何东西。
+
+它只在一件事上联网：启动时和之后每 6 小时，向 GitHub 查询最新版本号；有新版本时，
+"设置"按钮右上角会出现一个小红点。不会下载任何东西。可以在窗口设置里关掉
+（"自动检查更新"），那里的"检查更新"按钮可以手动查一次。
 
 页头就是标题栏：拖动它移动窗口，双击最大化；Windows 自带的贴靠、动画和阴影都保留，
 Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹里之后出现的设置清单会

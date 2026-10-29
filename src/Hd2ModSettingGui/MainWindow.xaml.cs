@@ -37,6 +37,12 @@ namespace Hd2ModSettingGui
         int scans;
         readonly DispatcherTimer writeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         readonly DispatcherTimer tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        // (the user, 10-25) a newer window: looked for at start and every 6 hours (unless
+        // turned off) or when asked; found, a red dot on the Settings button
+        readonly DispatcherTimer updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        bool autoUpdate = true, checking;
+        Version newer;                   // the newer release found; null: none (or not looked yet)
+        string newerUrl = Updates.Page, updateNote;
         FileSystemWatcher watcher;   // the folder: a file the game writes is read back at once, not at the next tick
         string watched;
         readonly Dictionary<string, (ModState St, string Key, Action<object> Show, FrameworkElement Reset)> rows =
@@ -75,16 +81,20 @@ namespace Hd2ModSettingGui
             Load();
             tick.Start();
             StateChanged += (s, e) => FitMaximized();
+            autoUpdate = !(Environs.LoadConfig().TryGetValue("auto_update", out var au) && au is bool ab && !ab);
+            updateTimer.Tick += (s, e) => { updateTimer.Interval = TimeSpan.FromHours(6); if (autoUpdate) CheckUpdate(false); };
+            updateTimer.Start();
         }
 
         // ---------------------------------------------------------------- loading
-        string trStamp = "";            // the translation packs' files as last loaded
+        string trStamp = "", listStamp = "";   // the translation packs' and the lists' files as last loaded
         int langLook;                   // the game's language looked at every 5 s (it is changed in the game, rarely)
 
         void Load(bool texts = false)
         {
             Watch();
             trStamp = Protocol.TranslationStamp(folder);
+            listStamp = Protocol.ListStamp(folder);
             Protocol.GameTag = Environs.GameLanguageTag(folder);
             mods = Protocol.FindMods(folder);
             found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
@@ -149,7 +159,10 @@ namespace Hd2ModSettingGui
             var v = typeof(MainWindow).Assembly.GetName().Version;
             SummaryText.Text = "v" + v.Major + "." + v.Minor + "." + v.Build + " · " +
                                (Entries().Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", Entries().Count));
-            SettingsBtn.Content = Texts.Get(settingsOpen ? "back" : "settings");
+            SettingsBtn.Content = SettingsLabel();
+            ReloadBtn.Content = Texts.Get("reload");
+            ReloadBtn.ToolTip = Texts.Get("reload_d");
+            ReloadBtn.Visibility = settingsOpen ? Visibility.Collapsed : Visibility.Visible;
             MinBtn.ToolTip = Texts.Get("minimize");
             CloseBtn.ToolTip = Texts.Get("close");
             UndoBtn.Content = Texts.Get("undo");
@@ -1190,6 +1203,16 @@ namespace Hd2ModSettingGui
             Refresh();
         }
 
+        // (the user, 10-26) everything read again now: the lists, their translations,
+        // the game's language and the values (the open mod's undo starts afresh)
+        void Reload_Click(object sender, RoutedEventArgs e)
+        {
+            running = Environs.GameRunning();
+            writeTimer.Stop();
+            Write();
+            Load(texts: true);
+        }
+
         void Settings_Click(object sender, RoutedEventArgs e)
         {
             settingsOpen = !settingsOpen;
@@ -1262,7 +1285,8 @@ namespace Hd2ModSettingGui
             col.Children.Add(Spaced(Text(Texts.Get("about"), "Label"), 32, 8));
             var v = typeof(MainWindow).Assembly.GetName().Version;
             col.Children.Add(Text("HD2 Mod Setting GUI v" + v.Major + "." + v.Minor + "." + v.Build, size: 14, weight: FontWeights.SemiBold));
-            col.Children.Add(Spaced(Text(Texts.Get("about_d"), "Hint"), 4, 4));
+            col.Children.Add(UpdateRow());
+            col.Children.Add(Spaced(Text(Texts.Get("about_d"), "Hint"), 12, 4));
             var link = new Hyperlink(new Run(Repo)) { NavigateUri = new Uri(Repo), Foreground = B("Blue") };
             link.RequestNavigate += (s, e) =>
             {
@@ -1271,6 +1295,110 @@ namespace Hd2ModSettingGui
             };
             col.Children.Add(new TextBlock(link) { FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13 });
             return scroll;
+        }
+
+        // ---------------------------------------------------------------- updates
+        // the Settings button's words, with a red dot at its corner while a newer window is out
+        object SettingsLabel()
+        {
+            // (the user, 10-25) the dot's centre on the button's top-right corner, half
+            // outside its frame: drawn above the button (an adorner), not inside it
+            var layer = AdornerLayer.GetAdornerLayer(SettingsBtn);
+            if (layer != null)
+            {
+                if (newer != null && dot == null) layer.Add(dot = new CornerDot(SettingsBtn));
+                else if (newer == null && dot != null) { layer.Remove(dot); dot = null; }
+            }
+            SettingsBtn.ToolTip = newer == null ? null : Texts.Get("update_found", "v" + newer.ToString(3));
+            return Texts.Get(settingsOpen ? "back" : "settings");
+        }
+
+        CornerDot dot;
+
+        sealed class CornerDot : Adorner
+        {
+            const double R = 4.5;
+            static readonly Brush Red = new SolidColorBrush(Color.FromRgb(0xFF, 0x4D, 0x4D));
+            public CornerDot(UIElement on) : base(on) { IsHitTestVisible = false; }
+
+            // on the corner where the frame's lines cross (their middles, half a line in
+            // from the outer edge: the user, 10-25, saw it a pixel off), put on whole
+            // screen pixels so the dot is drawn round and even
+            protected override void OnRender(DrawingContext dc)
+            {
+                var b = AdornedElement as Control;
+                double right = b?.BorderThickness.Right ?? 0, top = b?.BorderThickness.Top ?? 0;
+                var dpi = VisualTreeHelper.GetDpi(this);
+                double Snap(double v, double s) => Math.Round(v * s) / s;
+                var c = new Point(Snap(AdornedElement.RenderSize.Width - right / 2, dpi.DpiScaleX), Snap(top / 2, dpi.DpiScaleY));
+                dc.DrawEllipse(Red, null, c, R, R);
+            }
+        }
+
+        // in the settings page: what was found, the check, the switch
+        FrameworkElement UpdateRow()
+        {
+            var box = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+            var line = new WrapPanel();
+            var check = new Button { Content = Texts.Get(checking ? "checking" : "check_update"), Style = S("Ghost"), IsEnabled = !checking, Margin = new Thickness(0, 0, 12, 4) };
+            check.Click += (s, e) => CheckUpdate(true);
+            line.Children.Add(check);
+            if (newer != null)
+            {
+                var go = new Button { Content = Texts.Get("download", "v" + newer.ToString(3)), Style = S("Primary"), Margin = new Thickness(0, 0, 12, 4) };
+                go.Click += (s, e) => { try { Process.Start(new ProcessStartInfo { FileName = newerUrl, UseShellExecute = true }); } catch (Exception) { } };
+                line.Children.Add(go);
+            }
+            else if (updateNote != null)
+            {
+                var note = Text(updateNote, "Hint");
+                note.VerticalAlignment = VerticalAlignment.Center;
+                line.Children.Add(note);
+            }
+            box.Children.Add(line);
+            var auto = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
+            var sw = new CheckBox { Style = S("Switch"), IsChecked = autoUpdate, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 2, 0, 0) };
+            sw.Checked += (s, e) => SetAutoUpdate(true);
+            sw.Unchecked += (s, e) => SetAutoUpdate(false);
+            DockPanel.SetDock(sw, Dock.Right);
+            auto.Children.Add(sw);
+            var words = new StackPanel();
+            words.Children.Add(Text(Texts.Get("auto_update"), size: 14, weight: FontWeights.SemiBold));
+            words.Children.Add(Spaced(Text(Texts.Get("auto_update_d"), "Hint"), 4, 0));
+            auto.Children.Add(words);
+            box.Children.Add(auto);
+            return box;
+        }
+
+        async void CheckUpdate(bool asked)
+        {
+            if (checking) return;
+            checking = true;
+            if (settingsOpen) Build();
+            try
+            {
+                var (latest, url) = await Updates.Latest();
+                var mine = typeof(MainWindow).Assembly.GetName().Version;
+                newer = Updates.IsNewer(latest, mine) ? latest : null;
+                newerUrl = url;
+                updateNote = newer == null ? Texts.Get("up_to_date", "v" + Updates.Norm(mine).ToString(3)) : null;
+            }
+            catch (Exception e) when (e is System.Net.WebException || e is FormatException || e is NotSupportedException || e is System.Security.SecurityException)
+            {
+                // a look of its own that fails says nothing: the next one in 6 hours
+                if (asked) updateNote = Texts.Get("check_failed", e.Message);
+            }
+            checking = false;
+            if (settingsOpen || asked) Build();
+            else SettingsBtn.Content = SettingsLabel();
+        }
+
+        void SetAutoUpdate(bool on)
+        {
+            autoUpdate = on;
+            var cfg = Environs.LoadConfig();
+            cfg["auto_update"] = on;
+            Environs.SaveConfig(cfg);
         }
 
         void SetPeek(bool on)
@@ -1288,7 +1416,7 @@ namespace Hd2ModSettingGui
             // a list that appears (or goes) is loaded: the same ones leave all as it is
             var now = Protocol.FindMods(folder).Select(m => m.Name).ToList();
             if (!now.SequenceEqual(mods.Select(m => m.Name))) Load();
-            else if (!writeTimer.IsEnabled && (Protocol.TranslationStamp(folder) != trStamp
+            else if (!writeTimer.IsEnabled && (Protocol.ListStamp(folder) != listStamp || Protocol.TranslationStamp(folder) != trStamp
                      || (++langLook % 5 == 0 && Environs.GameLanguageTag(folder) != Protocol.GameTag))) Load(texts: true);
             // the file changed in the game (and none of ours waits to be written): shown, not written back
             // (the profile switched: the mod puts that profile's values in its file, read back here)

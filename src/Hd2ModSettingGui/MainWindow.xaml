@@ -39,6 +39,8 @@
           </Button>
           <Button x:Name="SettingsBtn" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Margin="0,0,24,0" MinHeight="34"
                   VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Click="Settings_Click" Content="Settings"/>
+          <Button x:Name="ReloadBtn" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Margin="0,0,8,0" MinHeight="34"
+                  VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Click="Reload_Click" Content="Refresh"/>
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
             <Ellipse x:Name="ConnDot" Width="8" Height="8" Fill="{StaticResource Muted}" Margin="0,0,8,0"/>
             <TextBlock x:Name="ConnText" Style="{StaticResource MonoText}" VerticalAlignment="Center"/>
