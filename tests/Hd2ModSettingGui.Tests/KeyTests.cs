@@ -91,6 +91,25 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void The_overlay_key_is_read_back_as_written()
+        {
+            foreach (var text in new[] { "f10", "ctrl+f10", "ctrl+alt+shift+home", "shift+numpad +", "alt+backtick" })
+                Assert.Equal(text, Hotkey.Parse(text).ToString());
+            Assert.Null(Hotkey.Parse(""));
+            Assert.Null(Hotkey.Parse("win+f10"));
+            Assert.Null(Hotkey.Parse("ctrl+nokey"));
+            var h = Hotkey.From(Key.F10, ModifierKeys.Control | ModifierKeys.Shift);
+            Assert.Equal("ctrl+shift+f10", h.ToString());
+            Assert.Equal(2u | 4u, h.Modifiers);
+            Assert.Equal(0x79u, h.VirtualKey);                    // VK_F10
+            Assert.Null(Hotkey.From(Key.LeftCtrl, ModifierKeys.Control));   // a modifier alone is no key
+            Assert.Equal("Ctrl + Shift + F10", h.Label());
+            Assert.Equal("page down", Hotkey.Parse(Hotkey.Default).ToString());
+            Assert.Equal(0x22u, Hotkey.Parse(Hotkey.Default).VirtualKey);   // VK_NEXT
+            Assert.Equal("Page Down", Hotkey.Parse(Hotkey.Default).Label());
+        }
+
+        [Fact]
         public void A_key_shown_as_on_its_keycap()
         {
             // (the user, 10-24: "equal" and "minus" shown in a Chinese window) signs as signs,

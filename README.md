@@ -45,10 +45,21 @@ turns clear for a moment while the game runs, so with it in borderless
 windowed mode you watch the change land in the game; it comes back 2.5 s after the last
 change, or when you let go of a slider.
 
+To change settings in the middle of a game, leave the window open
+(minimized is enough) and press **Page Down** in the game:
+
+1. The window comes up on top of the game. If it was on another screen,
+   it moves onto the game's.
+2. Press Page Down again: the window goes away and the game has the keys again.
+
+The game has to run in borderless windowed mode. The window holds the key
+only while the game runs, so other programs keep it the rest of the time.
+The key can be changed or cleared in the window's settings.
+
 "Settings" in the header opens the window's own settings: the language
 (at first Windows' own, then the one you chose), the folder with the
-settings lists, the hiding above (on by default), and this repository's
-address.
+settings lists, the hiding above (on by default), the key over the game,
+and this repository's address.
 
 ## What it touches
 
@@ -62,8 +73,9 @@ Two text files in the game's own settings folder,
 
 It also reads the end of `<mod>.log` for the status line, and the names in
 Windows' list of running programs to see whether `helldivers2.exe` is
-running. It does not open the game's process, read its memory or inject
-anything.
+running. While it runs, the window holds the key over the game as a system
+hotkey, and asks Windows where the game's window is to come up over it. It
+does not open the game's process, read its memory or inject anything.
 
 It goes online for one thing only: at start and every 6 hours it asks
 GitHub for the number of the latest release, and when a newer one is out,
@@ -278,7 +290,8 @@ MIT -- see `LICENSE`.
   `#end`；模组如果正好读到写了一半的内容，没有 `#end` 就会等下一次再读。
 
 另外会读 `<模组>.log` 的末尾来显示状态，并查看 Windows 正在运行的程序名单里
-有没有 `helldivers2.exe`。它不打开游戏进程、不读游戏内存、不注入任何东西。
+有没有 `helldivers2.exe`。游戏运行期间，窗口把"在游戏中呼出"的按键注册为系统快捷键，
+并向 Windows 查询游戏窗口的位置，以便出现在它上方。它不打开游戏进程、不读游戏内存、不注入任何东西。
 
 它只在一件事上联网：启动时和之后每 6 小时，向 GitHub 查询最新版本号；有新版本时，
 "设置"按钮右上角会出现一个小红点。不会下载任何东西。可以在窗口设置里关掉
@@ -300,8 +313,16 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹
 变成全透明（只在游戏运行时）；游戏用无边框窗口模式时，就能直接看到改动在游戏里的效果。最后一次改动 2.5 秒后，
 或松开滑条后，窗口恢复原样。
 
+想在游戏中途改设置时，让窗口保持打开（最小化即可），在游戏里按 **Page Down**：
+
+1. 窗口出现在游戏画面上方。如果它原本在另一块屏幕上，会移到游戏所在的屏幕。
+2. 再按一次 Page Down，窗口收起，按键交还给游戏。
+
+游戏需要使用无边框窗口模式。窗口只在游戏运行时占用这个键，其余时间其他程序照常使用。
+这个键可以在窗口设置里更换或清除。
+
 页头的“设置”打开窗口自己的设置：语言（第一次跟随 Windows，之后沿用上次的选择）、设置列表所在
-文件夹、上面说的隐藏窗口（默认开启），以及本仓库的地址。
+文件夹、上面说的隐藏窗口（默认开启）、在游戏中呼出的按键，以及本仓库的地址。
 
 如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
 

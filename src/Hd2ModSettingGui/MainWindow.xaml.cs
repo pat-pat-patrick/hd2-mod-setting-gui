@@ -70,6 +70,7 @@ namespace Hd2ModSettingGui
             peekOn = !(Environs.LoadConfig().TryGetValue("peek", out var pk) && pk is bool pb && !pb);
             Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
             folder = Arg("--folder");
+            settingsOpen = Array.IndexOf(args, "--settings") >= 0;   // (tests and screenshots) opened on the window's settings
             if (folder == null)
             {
                 var kept = Environs.LoadConfig().TryGetValue("game_dir", out var d) ? d as string : null;
@@ -78,6 +79,7 @@ namespace Hd2ModSettingGui
             writeTimer.Tick += (s, e) => { writeTimer.Stop(); Write(); };
             tick.Tick += (s, e) => Tick();
             running = Environs.GameRunning();
+            LoadOverlayKey();
             Load();
             tick.Start();
             StateChanged += (s, e) => FitMaximized();
@@ -1281,6 +1283,10 @@ namespace Hd2ModSettingGui
             line.Children.Add(Text(Texts.Get("peek_d"), "Hint"));
             col.Children.Add(line);
 
+            // the key that brings the window up over the game
+            col.Children.Add(Spaced(Text(Texts.Get("overlay"), "Label"), 32, 8));
+            col.Children.Add(OverlayRow());
+
             // about
             col.Children.Add(Spaced(Text(Texts.Get("about"), "Label"), 32, 8));
             var v = typeof(MainWindow).Assembly.GetName().Version;
@@ -1422,6 +1428,7 @@ namespace Hd2ModSettingGui
             // (the profile switched: the mod puts that profile's values in its file, read back here)
             else TakeBack();
             PaintStatus();
+            ArmHotkey();
         }
 
         void TakeBack()
@@ -1660,6 +1667,7 @@ namespace Hd2ModSettingGui
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             if (writeTimer.IsEnabled) { writeTimer.Stop(); Write(); }
+            ReleaseHotkey();
             base.OnClosing(e);
         }
 
@@ -1696,6 +1704,7 @@ namespace Hd2ModSettingGui
             (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(Hook);
             acrylic = Backdrop.Enable(this);
             if (acrylic) Frame.Background = B("Ground900");   // the ground the window drew (its own is clear for the acrylic)
+            ArmHotkey();
         }
 
         // ---------------------------------------------------------------- the peek
@@ -1749,6 +1758,9 @@ namespace Hd2ModSettingGui
         {
             switch (msg)
             {
+                case WM_HOTKEY:
+                    if (wParam.ToInt32() == HotkeyId) { handled = true; ToggleOverlay(); }
+                    break;
                 case WM_NCHITTEST:
                     if (OverMax(lParam)) { SetMaxHover(true); handled = true; return new IntPtr(HTMAXBUTTON); }
                     SetMaxHover(false);

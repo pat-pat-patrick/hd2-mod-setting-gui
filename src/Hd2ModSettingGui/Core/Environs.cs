@@ -49,6 +49,19 @@ namespace Hd2ModSettingGui.Core
             catch (Exception) { return false; }
         }
 
+        /// <summary>The game's main window; IntPtr.Zero when it does not run (or has none yet).</summary>
+        public static IntPtr GameWindow()
+        {
+            try
+            {
+                var p = Process.GetProcessesByName("helldivers2");
+                var h = IntPtr.Zero;
+                foreach (var x in p) { if (h == IntPtr.Zero) h = x.MainWindowHandle; x.Dispose(); }
+                return h;
+            }
+            catch (Exception) { return IntPtr.Zero; }
+        }
+
         /// <summary>Chinese when Windows shows Chinese.</summary>
         public static bool UiChinese => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
 
