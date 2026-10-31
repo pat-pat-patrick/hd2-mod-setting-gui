@@ -421,6 +421,47 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void The_game_language_handed_to_a_mod_that_asks()
+        {
+            // (window 1.14.0; the user, 2026-11-01) a mod's Lua cannot read the game's
+            // language since the 2026-10-20 update: the window writes it for the mods that ask
+            using (var f = new Folder(false))
+            {
+                var asks = Path.Combine(f.Dir, "kf_options.json");
+                File.WriteAllText(asks, "{\"title\":\"KF\",\"game_language\":true,\"options\":[{\"key\":\"volume\",\"type\":\"slider\",\"min\":0,\"max\":100,\"default\":50,\"name\":\"Volume\"}]}");
+                var other = Path.Combine(f.Dir, "cam_options.json");
+                File.WriteAllText(other, "{\"title\":\"Cam\",\"options\":[{\"key\":\"dist\",\"type\":\"slider\",\"min\":0,\"max\":2,\"default\":0,\"name\":\"Distance\"}]}");
+                var kf = ModList.Load(asks);
+                var cam = ModList.Load(other);
+                Assert.True(kf.GameLanguage);
+                Assert.False(cam.GameLanguage);
+
+                // no values file yet: one with the language alone
+                Assert.True(Protocol.HandLanguage(kf, "zh-Hans"));
+                Assert.Equal("game_language=zh-Hans\n#end\n", File.ReadAllText(kf.SettingsPath));
+                // the same language: nothing written
+                Assert.False(Protocol.HandLanguage(kf, "zh-Hans"));
+                // the mod's own lines kept, in their order; the language changed in place
+                File.WriteAllText(kf.SettingsPath, "volume=40\nzeta=1\ngame_language=zh-Hans\nalpha=2\n#end\n");
+                Assert.True(Protocol.HandLanguage(kf, "zh-Hant"));
+                Assert.Equal("volume=40\nzeta=1\ngame_language=zh-Hant\nalpha=2\n#end\n", File.ReadAllText(kf.SettingsPath));
+                // a file the mod wrote again without it: given back
+                File.WriteAllText(kf.SettingsPath, "volume=45\n#end\n");
+                Assert.True(Protocol.HandLanguage(kf, "zh-Hant"));
+                Assert.Equal("volume=45\ngame_language=zh-Hant\n#end\n", File.ReadAllText(kf.SettingsPath));
+                // the language not known: nothing; a mod that did not ask: never
+                Assert.False(Protocol.HandLanguage(kf, null));
+                Assert.False(Protocol.HandLanguage(cam, "zh-Hans"));
+                Assert.False(File.Exists(cam.SettingsPath));
+                // the window's own save keeps the line (a key the list does not know)
+                var st = new ModState(kf);
+                st.Set("volume", 60.0);
+                st.Save();
+                Assert.Equal("volume=60\ngame_language=zh-Hant\n#end\n", File.ReadAllText(kf.SettingsPath));
+            }
+        }
+
+        [Fact]
         public void A_newer_release_by_its_tag()
         {
             Assert.Equal(new Version(1, 12, 0), Updates.ParseTag("v1.12.0"));

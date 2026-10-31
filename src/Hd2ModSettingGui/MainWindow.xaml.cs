@@ -100,6 +100,7 @@ namespace Hd2ModSettingGui
             Protocol.GameTag = Environs.GameLanguageTag(folder);
             mods = Protocol.FindMods(folder);
             found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
+            HandLanguages();
             var open = state?.List.Title;
             if (open != null && !Entries().Contains(open)) open = null;
             // the mod open stays as it is (its undo with it) while its lists are the same
@@ -1427,8 +1428,24 @@ namespace Hd2ModSettingGui
             // the file changed in the game (and none of ours waits to be written): shown, not written back
             // (the profile switched: the mod puts that profile's values in its file, read back here)
             else TakeBack();
+            // a values file the mod wrote again before it had the language: given it again
+            if (++handLook % 5 == 0 && !writeTimer.IsEnabled) HandLanguages();
             PaintStatus();
             ArmHotkey();
+        }
+
+        int handLook;                   // the mods' language lines looked at every 5 s
+
+        /// <summary>The game's language into the values file of every mod that asks for it
+        /// (the user, 2026-11-01: a mod's text follows the game, which its Lua cannot read
+        /// since the 2026-10-20 update). The open mod reads its file back on the next tick.</summary>
+        void HandLanguages()
+        {
+            foreach (var list in found ?? new List<ModList>())
+            {
+                try { Protocol.HandLanguage(list, Protocol.GameTag); }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }
+            }
         }
 
         void TakeBack()

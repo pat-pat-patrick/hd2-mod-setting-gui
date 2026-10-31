@@ -137,6 +137,9 @@ namespace Hd2ModSettingGui.Core
         /// <summary>"profiles": true: the mod asks for the window's own profiles
         /// (the user, 10-24: only a mod that declares it gets the bar).</summary>
         public bool Profiles;
+        /// <summary>"game_language": true: the mod asks for the game's language, which
+        /// its Lua cannot read (the user, 2026-11-01): Protocol.HandLanguage writes it.</summary>
+        public bool GameLanguage;
 
         public string SettingsPath => Path.Combine(Folder, SettingsFile);
         /// <summary>The mod's log: of <name>.log and <name>_v*.log in the folder
@@ -236,6 +239,7 @@ namespace Hd2ModSettingGui.Core
             if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
                 m.ProfileKey = pfk;
             m.Profiles = root.TryGetValue("profiles", out var ps) && ps is bool psb && psb;
+            m.GameLanguage = root.TryGetValue("game_language", out var gl) && gl is bool glb && glb;
             if (root.TryGetValue("translations", out var trs) && trs is IDictionary<string, object> all)
                 foreach (var lang in all)
                     if (lang.Value is IDictionary<string, object> table)
@@ -405,6 +409,34 @@ namespace Hd2ModSettingGui.Core
                        && root.TryGetValue("stale", out var s) && s is bool b && b;
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is FormatException || e is ArgumentException) { return false; }
+        }
+
+        /// <summary>The key the game's language goes under (window 1.14.0).</summary>
+        public const string GameLanguageKey = "game_language";
+
+        /// <summary>The game's language (a tag, Environs.GameLanguageTag) into the values file
+        /// of a mod that asks for it ("game_language": true), when the file does not have it
+        /// yet: every other line as it was, in its order. false: nothing to write (not asked,
+        /// the language not known, or already there).</summary>
+        public static bool HandLanguage(ModList list, string tag)
+        {
+            if (list == null || !list.GameLanguage || string.IsNullOrEmpty(tag)) return false;
+            var values = ReadValues(list.SettingsPath);
+            if (values.TryGetValue(GameLanguageKey, out var now) && now == tag) return false;
+            var order = new List<string>();
+            try
+            {
+                foreach (var raw in File.ReadAllLines(list.SettingsPath, Encoding.UTF8))
+                {
+                    int eq = raw.IndexOf('=');
+                    if (eq > 0) order.Add(raw.Substring(0, eq).Trim());
+                }
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }
+            var all = values.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+            all[GameLanguageKey] = tag;
+            WriteValues(list.SettingsPath, all, order);
+            return true;
         }
 
         /// <summary>key -> raw text, from a key=value file (missing: empty).</summary>

@@ -146,6 +146,7 @@ An example:
 | `menu_owned` | no | Keys another menu holds. They are shown, but can't be changed here. |
 | `profile` | no | See *Optional features*. |
 | `profiles` | no | See *Optional features*. |
+| `game_language` | no | See *Optional features*. |
 | `stale` | no | `true`: the list is no longer in use (its mod stopped taking part). The window skips it. |
 
 #### A setting
@@ -229,6 +230,13 @@ same tables as `translations`:
   reorders by dragging, and renames, duplicates or deletes one with a
   right-click. The profile in use follows the changes made in the window.
   Profiles are kept in the window's own config, never in your files.
+- **`"game_language": true`** asks for the game's text language, which a
+  mod's Lua cannot read in game (the setting is in an account file whose
+  name the Lua cannot find). The window writes `game_language=<tag>` into
+  your values file, again whenever the game's language changes:
+  `zh-Hans`, `zh-Hant`, `en`, `ja`, `ko`, `ru`, `fr`, `es`, `it`, `pl`,
+  `pt-BR`, `ms`, `de`, or the game's own code for any other. Keep the line
+  when your mod writes the file itself.
 
 ### Step 2: read the values
 
@@ -359,6 +367,7 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 | `menu_owned` | 否 | 由别的菜单管理的设置。会显示，但不能在这里改。 |
 | `profile` | 否 | 见"可选功能"。 |
 | `profiles` | 否 | 见"可选功能"。 |
+| `game_language` | 否 | 见"可选功能"。 |
 | `stale` | 否 | `true`：这份清单已经不用了（它的 mod 不再接入），窗口会跳过它。 |
 
 ##### 一项设置
@@ -423,6 +432,10 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 - **`"profiles": true`**：在模组页面顶部显示窗口自己的配置栏。每个配置是一整套设置值（包括按键）。
   玩家点 **+** 用当前设置新建，点一下切换，拖动排序，右键重命名、复制、删除。
   正在使用的配置会跟着窗口里的改动一起更新。配置只存在窗口自己的配置文件里，不会写进 mod 的文件。
+- **`"game_language": true`**：请求游戏的文字语言。mod 的 Lua 在游戏里读不到它（这个设置在一个以账号命名的文件里，Lua 找不到文件名）。
+  窗口会把 `game_language=<标签>` 写进你的设置值文件，游戏语言变了会再写一次：
+  `zh-Hans`、`zh-Hant`、`en`、`ja`、`ko`、`ru`、`fr`、`es`、`it`、`pl`、`pt-BR`、`ms`、`de`，其他语言写游戏自己的代码。
+  mod 自己写这个文件时，请保留这一行。
 
 #### 第二步：读取设置值
 
