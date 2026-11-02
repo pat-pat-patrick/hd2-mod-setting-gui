@@ -15,7 +15,6 @@ namespace Hd2ModSettingGui
             ["summary_one"] = ("1 mod", "1 个 MOD"),
             ["running"] = ("Game running · changes apply at once", "已连接游戏 · 修改即时生效"),
             ["not_running"] = ("Game not running · changes apply at the next launch", "游戏未运行 · 下次进游戏生效"),
-            ["waiting_list"] = ("Waiting for the game to write a settings list", "等待游戏写入设置列表"),
             ["settings"] = ("Settings", "设置"),
             ["press_key"] = ("Press a key…", "按下一个键…"),
             ["no_key"] = ("Not set", "未设置"),
@@ -86,27 +85,36 @@ namespace Hd2ModSettingGui
             ["pick"] = ("Pick a colour", "取色"),
             ["write_failed"] = ("The settings could not be written:\n{0}", "设置写入失败：\n{0}"),
             // the empty page (design: "空状态 · 未找到设置列表")
-            ["empty_nav"] = ("Mods appear here once their settings list is found", "找到设置列表后，mod 会出现在这里"),
+            ["empty_nav"] = ("Mods appear here once they hand over their settings", "mod 交来设置后会出现在这里"),
             ["tape"] = ("无信号 // NO SIGNAL // ", "无信号 // NO SIGNAL // "),
-            ["empty_title"] = ("No mod's settings found yet", "还没有找到任何 mod 的设置"),
-            ["empty_body"] = ("A mod that supports this window writes its settings list into the folder below when the game starts. "
-                              + "It is still empty: the game has not started with such a mod yet.",
-                              "支持本窗口的 mod 会在游戏启动时，把自己的设置列表写到下面这个文件夹。这里还是空的，说明游戏还没带着这类 mod 启动过。"),
+            ["empty_title"] = ("There is nothing to set up here", "这里不需要任何设置"),
+            ["empty_body"] = ("No folder needs to be chosen or made. A mod that supports this window hands its settings over by itself "
+                              + "when the game starts, and they appear here. None has done so yet: the game has not started with such a mod.",
+                              "不需要选择或新建任何文件夹。支持本窗口的 mod 会在游戏启动时自动把设置交给本窗口，设置随后就会出现在这里。"
+                              + "目前还没有：游戏还没有带着这类 mod 启动过。"),
             ["folder"] = ("Settings list folder", "设置列表所在文件夹"),
             ["copy"] = ("Copy path", "复制路径"),
             ["copied"] = ("Copied", "已复制"),
             ["open_folder"] = ("Open folder", "打开文件夹"),
             ["how"] = ("How to make settings appear", "怎么让设置出现"),
             ["s1"] = ("Install a supported mod", "安装支持的 mod"),
-            ["s1d"] = ("e.g. Super Holo HUD 1.127.0 or later", "例如 Super Holo HUD 1.127.0 或更高版本"),
+            ["s1d"] = ("For example Super Holo HUD", "例如 Super Holo HUD"),
             ["s2"] = ("Start the game once", "启动一次游戏"),
-            ["s2d"] = ("The main menu is enough: the mod writes its list at launch", "进到主菜单即可，mod 会在启动时写入列表"),
+            ["s2d"] = ("The main menu is enough: the mod hands its settings over at launch", "进到主菜单即可，mod 会在启动时交出设置"),
             ["s3"] = ("Come back here", "回到这里"),
-            ["s3d"] = ("No need to reopen this window: the list appears by itself", "不用重开本窗口，列表会自动出现"),
-            ["watching"] = ("Watching this folder; new settings lists load automatically", "正在监视此文件夹，出现列表会自动载入"),
-            ["rescanned"] = ("Scanned again: nothing yet · still watching", "已重新扫描，仍未找到 · 继续监视此文件夹"),
-            ["change_folder"] = ("Change folder", "更改文件夹"),
-            ["rescan"] = ("Scan again", "立即重新扫描"),
+            ["s3d"] = ("No need to reopen this window: the settings appear by themselves", "不用重开本窗口，设置会自动出现"),
+            // (the user, 11-02: players with Mod Options Menu mods found the window empty)
+            ["mom_title"] = ("Mods you set in Mod Options Menu or Mod Bindings Menu", "原本在 Mod Options Menu 或 Mod Bindings Menu 里设置的 mod"),
+            ["mom_body"] = ("Where these mods' settings show depends on the loader. With Boot Mod Loader they appear here once the game "
+                            + "has started with it, with the values you set in Mod Options Menu; keys set in Mod Bindings Menu have to be set again. "
+                            + "With another loader, such as MDL or Chef Shared Loader, they show in that loader's own in-game menu and, at present, "
+                            + "not here.",
+                            "这类 mod 的设置显示在哪里，取决于使用哪个启动器。使用 Boot Mod Loader 时，启动一次游戏后它们就会出现在本窗口，"
+                            + "Mod Options Menu 里原来的设置值也会带过来；Mod Bindings Menu 里的按键需要重新设置。"
+                            + "使用 MDL、Chef Shared Loader 等其他启动器时，它们显示在该启动器自己的游戏内菜单里，目前不会出现在本窗口。"),
+            ["watching"] = ("Waiting for a mod's settings; they load here by themselves", "正在等待 mod 交来设置，出现后会自动载入"),
+            ["rescanned"] = ("Checked again: nothing yet · still waiting", "已重新检查，仍未找到 · 继续等待"),
+            ["rescan"] = ("Check again", "立即重新检查"),
         };
 
         public static string Get(string key) => T.TryGetValue(key, out var p) ? (Zh ? p.Zh : p.En) : key;

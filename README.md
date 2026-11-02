@@ -24,9 +24,11 @@ One file of about 100 KB. It runs on the .NET Framework 4.8 that Windows 10
 
 Its header is its title bar: drag it to move the window, double-click it to
 maximize; Windows' own snapping, animations and shadow are kept, and on
-Windows 11 hovering the maximize button offers the snap layouts. A list
-that appears in the folder later is loaded by itself; "Change folder" points
-the window elsewhere and remembers it.
+Windows 11 hovering the maximize button offers the snap layouts.
+
+There is nothing to set up. The window always reads the game's own settings
+folder, and no folder needs to be chosen or made. A mod that starts with the
+game later appears by itself.
 
 A key setting is set by clicking it and pressing the key (or the middle or a
 side mouse button); Esc leaves it as it was, the cross clears it.
@@ -306,8 +308,10 @@ MIT -- see `LICENSE`.
 （"自动检查更新"），那里的"检查更新"按钮可以手动查一次。
 
 页头就是标题栏：拖动它移动窗口，双击最大化；Windows 自带的贴靠、动画和阴影都保留，
-Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。文件夹里之后出现的设置清单会
-自动载入；“更改文件夹”可以指向别的文件夹，并会记住。
+Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。
+
+窗口不需要任何设置。它始终读取游戏自己的设置文件夹，不需要选择或新建文件夹。
+之后随游戏启动的 mod 会自动出现。
 
 按键设置：点一下再按下想要的键（也可以是鼠标中键或侧键）；Esc 取消，叉号清除。
 

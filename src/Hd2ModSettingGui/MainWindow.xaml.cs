@@ -73,8 +73,12 @@ namespace Hd2ModSettingGui
             settingsOpen = Array.IndexOf(args, "--settings") >= 0;   // (tests and screenshots) opened on the window's settings
             if (folder == null)
             {
-                var kept = Environs.LoadConfig().TryGetValue("game_dir", out var d) ? d as string : null;
-                folder = kept != null && Directory.Exists(kept) ? kept : Environs.GameFolder;
+                // (the user, 11-02: players took the empty page for one to set up, made folders
+                // and pointed the window at them) the folder is the game's, always; one chosen
+                // with the old "Change folder" is let go
+                folder = Environs.GameFolder;
+                var cfg = Environs.LoadConfig();
+                if (cfg.Remove("game_dir")) Environs.SaveConfig(cfg);
             }
             writeTimer.Tick += (s, e) => { writeTimer.Stop(); Write(); };
             tick.Tick += (s, e) => Tick();
@@ -1257,10 +1261,9 @@ namespace Hd2ModSettingGui
             // the folder
             col.Children.Add(Spaced(Text(Texts.Get("folder"), "Label"), 32, 8));
             var row = new DockPanel();
-            var change = Ghost(Texts.Get("change_folder"), (s, e) => ChangeFolder());
             copyBtn = Ghost(Texts.Get("copy"), (s, e) => CopyPath());
             var open = Ghost(Texts.Get("open_folder"), (s, e) => OpenFolder());
-            foreach (var b in new[] { change, open, copyBtn })
+            foreach (var b in new[] { open, copyBtn })
             {
                 b.Margin = new Thickness(8, 0, 0, 0);
                 DockPanel.SetDock(b, Dock.Right);
@@ -1487,12 +1490,9 @@ namespace Hd2ModSettingGui
 
         void PaintStatus()
         {
-            if (state == null)
-            {
-                ConnDot.Fill = B("Muted");
-                ConnText.Text = Texts.Get("waiting_list");
-                return;
-            }
+            // no mod yet: the empty page says what it waits for (the header said it a second time)
+            ConnPanel.Visibility = state == null ? Visibility.Collapsed : Visibility.Visible;
+            if (state == null) return;
             ConnDot.Fill = running ? B("Blue") : B("Muted");
             ConnText.Text = Texts.Get(running ? "running" : "not_running");
             var colour = B("Muted");
@@ -1546,22 +1546,8 @@ namespace Hd2ModSettingGui
             body.FontSize = 14;
             body.LineHeight = 21;
             col.Children.Add(body);
-            col.Children.Add(Spaced(Text(Texts.Get("folder"), "Label"), 32, 8));
-            var row = new DockPanel();
-            copyBtn = Ghost(Texts.Get("copy"), (s, e) => CopyPath());
-            copyBtn.Margin = new Thickness(8, 0, 0, 0);
-            var open = Ghost(Texts.Get("open_folder"), (s, e) => OpenFolder());
-            open.Margin = new Thickness(8, 0, 0, 0);
-            DockPanel.SetDock(open, Dock.Right);
-            DockPanel.SetDock(copyBtn, Dock.Right);
-            row.Children.Add(open);
-            row.Children.Add(copyBtn);
-            row.Children.Add(new Border
-            {
-                Background = B("Ground700"), BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 9, 12, 9),
-                Child = new TextBlock { Text = folder, FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13, TextWrapping = TextWrapping.Wrap },
-            });
-            col.Children.Add(row);
+            // (the user, 11-02) no folder here and nothing to choose: the page says there is
+            // nothing to set up, and what brings the settings
             col.Children.Add(Spaced(Text(Texts.Get("how"), "Label"), 32, 12));
             var steps = new UniformGrid { Columns = 3 };
             var keys = new[] { ("s1", "s1d"), ("s2", "s2d"), ("s3", "s3d") };
@@ -1578,14 +1564,18 @@ namespace Hd2ModSettingGui
                 });
             }
             col.Children.Add(steps);
+            // the mods of the two in-game menus: they come through Boot Mod Loader only
+            var mom = new StackPanel { Margin = new Thickness(16) };
+            mom.Children.Add(Text(Texts.Get("mom_title"), size: 14, weight: FontWeights.SemiBold));
+            var momBody = Text(Texts.Get("mom_body"), "Hint");
+            momBody.Margin = new Thickness(0, 8, 0, 0);
+            mom.Children.Add(momBody);
+            col.Children.Add(Spaced(new Border { Background = B("Ground700"), BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = mom }, 8, 0));
             var bar = new DockPanel { Margin = new Thickness(16, 10, 12, 10) };
             var scan = Ghost(Texts.Get("rescan"), (s, e) => Rescan(), "Primary");
             scan.Margin = new Thickness(8, 0, 0, 0);
             DockPanel.SetDock(scan, Dock.Right);
             bar.Children.Add(scan);
-            var change = Ghost(Texts.Get("change_folder"), (s, e) => ChangeFolder());
-            DockPanel.SetDock(change, Dock.Right);
-            bar.Children.Add(change);
             // the status takes what the buttons leave and wraps there (a
             // horizontal panel gave it all it asked for: the English line ran
             // under the buttons)
@@ -1650,20 +1640,6 @@ namespace Hd2ModSettingGui
             if (Protocol.FindMods(folder).Count > 0) { Load(); return; }
             scans++;
             if (scanText != null) scanText.Text = Texts.Get("rescanned");
-        }
-
-        void ChangeFolder()
-        {
-            var d = FolderPicker.Pick(this, Directory.Exists(folder) ? folder : null, Texts.Get("change_folder"));
-            if (d == null) return;
-            folder = d;
-            scans = 0;
-            var cfg = Environs.LoadConfig();
-            cfg["game_dir"] = d;
-            Environs.SaveConfig(cfg);
-            state = null;
-            members.Clear();
-            Load();
         }
 
         // ---------------------------------------------------------------- the window's own frame
