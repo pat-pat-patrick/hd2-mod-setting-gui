@@ -61,6 +61,7 @@ namespace Hd2ModSettingGui
 
         public MainWindow()
         {
+            Theme.On(this);              // before the XAML, whose StaticResources it holds
             InitializeComponent();
             peekEnd.Tick += (s, e) => Unpeek();
             var args = Environment.GetCommandLineArgs();
@@ -68,7 +69,7 @@ namespace Hd2ModSettingGui
             // the language: --lang (tests), else the one chosen last, else Windows's
             var lastLang = Environs.LoadConfig().TryGetValue("lang", out var lg) ? lg as string : null;
             peekOn = !(Environs.LoadConfig().TryGetValue("peek", out var pk) && pk is bool pb && !pb);
-            Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
+            if (!Host.Hosted) Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
             folder = Arg("--folder");
             settingsOpen = Array.IndexOf(args, "--settings") >= 0;   // (tests and screenshots) opened on the window's settings
             if (folder == null)
@@ -89,7 +90,10 @@ namespace Hd2ModSettingGui
             StateChanged += (s, e) => FitMaximized();
             autoUpdate = !(Environs.LoadConfig().TryGetValue("auto_update", out var au) && au is bool ab && !ab);
             updateTimer.Tick += (s, e) => { updateTimer.Interval = TimeSpan.FromHours(6); if (autoUpdate) CheckUpdate(false); };
-            updateTimer.Start();
+            // hosted, the plugin is updated with the manager's plugins, not from this window's releases
+            if (!Host.Hosted) updateTimer.Start();
+            else Activated += (s, e) => ReadPlaces();          // the library may have changed meanwhile
+            ReadPlaces();
         }
 
         // ---------------------------------------------------------------- loading
@@ -117,7 +121,45 @@ namespace Hd2ModSettingGui
         }
 
         string TitleOf(int i) => found[i]?.Title ?? mods[i].Name;
-        List<string> Entries() => Enumerable.Range(0, mods.Count).Select(TitleOf).Distinct().ToList();
+        List<string> Entries() => Enumerable.Range(0, mods.Count).Select(TitleOf).Distinct()
+            .OrderBy(e => Rank(PlaceOf(e))).ToList();      // stable: the folder's order within each
+
+        // ---------------------------------------------------------------- hosted by Quick Deploy
+        // which mod in the manager's library writes each list, and whether it is enabled
+        // (Host); null until read, and always on the window's own
+        Dictionary<string, Host.Place> places;
+        bool readingPlaces;
+
+        async void ReadPlaces()
+        {
+            if (!Host.Hosted || readingPlaces) return;
+            readingPlaces = true;
+            Dictionary<string, Host.Place> read;
+            try { read = await System.Threading.Tasks.Task.Run(() => Host.Read()); }
+            catch (Exception) { read = null; }       // the manager could not say: the lists as on the window's own
+            finally { readingPlaces = false; }
+            if (read == null) return;
+            bool first = places == null;
+            places = read;
+            if (first && state != null && PlaceOf(state.List.Title) != "on" && Entries().Count > 0 && PlaceOf(Entries()[0]) == "on")
+                Open(Entries()[0]);              // the first view opens an enabled mod
+            else if (state != null && !settingsOpen) Build();
+        }
+
+        /// <summary>"on", "off" or "unknown" for an entry (its lists, any of them on counts);
+        /// "on" while nothing is known.</summary>
+        string PlaceOf(string entry)
+        {
+            if (places == null) return "on";
+            var st = MembersOf(entry).Select(i => places.TryGetValue(mods[i].Name, out var p) ? p.State : "unknown").ToList();
+            return st.Contains("on") ? "on" : st.Contains("off") ? "off" : "unknown";
+        }
+
+        static int Rank(string place) => place == "on" ? 0 : place == "off" ? 1 : 2;
+
+        /// <summary>The library mods that write an entry's lists.</summary>
+        List<string> LibraryModsOf(string entry) =>
+            places == null ? new List<string>() : MembersOf(entry).SelectMany(i => places.TryGetValue(mods[i].Name, out var p) ? p.Mods : new List<string>()).Distinct().ToList();
         List<int> MembersOf(string title) => Enumerable.Range(0, mods.Count).Where(i => TitleOf(i) == title).ToList();
         static string Id(ModState st, string key) => st.List.Name + "|" + key;
 
@@ -197,8 +239,8 @@ namespace Hd2ModSettingGui
         }
 
         // ---------------------------------------------------------------- helpers
-        static Brush B(string key) => (Brush)Application.Current.Resources[key];
-        static Style S(string key) => (Style)Application.Current.Resources[key];
+        static Brush B(string key) => (Brush)Theme.Res[key];
+        static Style S(string key) => (Style)Theme.Res[key];
 
         static TextBlock Text(string text, string style = null, Brush fg = null, double size = 0, FontWeight? weight = null)
         {
@@ -244,7 +286,7 @@ namespace Hd2ModSettingGui
             var navHead = new StackPanel();
             navHead.Children.Add(Text(Texts.Get("filter"), "Label", margin: null));
             navHead.Children.Add(Spaced(Input(Texts.Get("mod_ph"), modQuery, v => { modQuery = v; RenderMods(); }), 6, 16));
-            navHead.Children.Add(Text(Texts.Get("installed"), "Label"));
+            if (places == null) navHead.Children.Add(Text(Texts.Get("installed"), "Label"));
             DockPanel.SetDock(navHead, Dock.Top);
             nav.Children.Add(navHead);
             navList = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
@@ -265,6 +307,13 @@ namespace Hd2ModSettingGui
             var num = System.Text.RegularExpressions.Regex.Match(ver ?? "", @"(\d+(?:\.\d+)+)\s*$");
             meta.Children.Add(Text(num.Success ? "v" + num.Groups[1].Value : ver, "MonoText"));
             meta.Children.Add(Text((string.IsNullOrEmpty(ver) ? "" : "  ·  ") + Texts.Get("count", members.Sum(m => m.List.Options.Count(o => o.HasValue))), fg: B("Muted"), size: 12));
+            if (places != null)
+            {
+                var place = PlaceOf(state.List.Title);
+                var from = LibraryModsOf(state.List.Title);
+                meta.Children.Add(Text("  ·  " + (place == "unknown" ? Texts.Get("place_unknown") : Texts.Get("place_" + place + "_mod", string.Join(" / ", from))),
+                                       fg: place == "on" ? B("Muted") : B("Yellow"), size: 12));
+            }
             titles.Children.Add(meta);
             titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Zh), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
@@ -346,6 +395,7 @@ namespace Hd2ModSettingGui
         {
             if (navList == null || state == null) return;
             navList.Children.Clear();
+            string section = null;
             foreach (var entry in Entries())
             {
                 var idx = MembersOf(entry);
@@ -355,6 +405,12 @@ namespace Hd2ModSettingGui
                     && other.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
                     && !idx.Any(i => mods[i].Name.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
                 bool cur = entry == state.List.Title;
+                var place = PlaceOf(entry);
+                if (places != null && place != section)
+                {
+                    section = place;
+                    navList.Children.Add(Spaced(Text(Texts.Get("place_" + place), "Label"), navList.Children.Count == 0 ? 0 : 16, 4));
+                }
                 var box = new Border
                 {
                     Background = cur ? B("Ground700") : Brushes.Transparent,
@@ -368,7 +424,7 @@ namespace Hd2ModSettingGui
                 // defaults read as "changed again" at every start -- gone, and the
                 // groups' dots with it; the eraser beside a setting says it);
                 // a long one pans while hovered or chosen
-                box.Child = Panning(box, Text(title, size: 14, weight: FontWeights.SemiBold), cur);
+                box.Child = Panning(box, Text(title, fg: place == "on" || cur ? null : B("Muted"), size: 14, weight: FontWeights.SemiBold), cur);
                 if (!cur) box.MouseLeftButtonUp += (s, e) => Open(entry);
                 navList.Children.Add(box);
             }
@@ -861,7 +917,7 @@ namespace Hd2ModSettingGui
             var box = new TextBox
             {
                 Style = S("Input"), Width = 64, MinHeight = 0, BorderThickness = new Thickness(0), Padding = new Thickness(8, 0, 2, 0),
-                FontFamily = (FontFamily)Application.Current.Resources["Mono"], TextAlignment = TextAlignment.Right,
+                FontFamily = (FontFamily)Theme.Res["Mono"], TextAlignment = TextAlignment.Right,
             };
             void Put(double v) { cur = v; box.Text = v.ToString("F" + spec.Digits, CultureInfo.InvariantCulture); }
             double? Typed() => double.TryParse(box.Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
@@ -955,7 +1011,7 @@ namespace Hd2ModSettingGui
             var custom = Swatch((string)st.Value(key), Texts.Get("pick"));
             custom.MouseLeftButtonUp += (s, e) => PickColor(st, key);
             sp.Children.Add(custom);
-            var box = new TextBox { Style = S("Input"), Width = 104, FontFamily = (FontFamily)Application.Current.Resources["Mono"], Margin = new Thickness(8, 0, 0, 0), MaxLength = 7 };
+            var box = new TextBox { Style = S("Input"), Width = 104, FontFamily = (FontFamily)Theme.Res["Mono"], Margin = new Thickness(8, 0, 0, 0), MaxLength = 7 };
             var bad = Text(Texts.Get("hex_bad"), fg: B("Yellow"), size: 12);
             bad.Visibility = Visibility.Collapsed;
             bad.Margin = new Thickness(0, 4, 0, 0);
@@ -1033,7 +1089,7 @@ namespace Hd2ModSettingGui
         // mod's key settings has too is said under it.
         FrameworkElement KeyControl(ModState st, string key, StackPanel below, out Action<object> show)
         {
-            var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Application.Current.Resources["Mono"] };
+            var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Theme.Res["Mono"] };
             var clear = new Button { Content = "×", Style = S("Ghost") };
             clear.MinWidth = 40;
             clear.Margin = new Thickness(6, 0, 0, 0);
@@ -1272,7 +1328,7 @@ namespace Hd2ModSettingGui
             row.Children.Add(new Border
             {
                 Background = B("Ground700"), BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 9, 12, 9),
-                Child = new TextBlock { Text = folder, FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13, TextWrapping = TextWrapping.Wrap },
+                Child = new TextBlock { Text = folder, FontFamily = (FontFamily)Theme.Res["Mono"], FontSize = 13, TextWrapping = TextWrapping.Wrap },
             });
             col.Children.Add(row);
 
@@ -1295,7 +1351,7 @@ namespace Hd2ModSettingGui
             col.Children.Add(Spaced(Text(Texts.Get("about"), "Label"), 32, 8));
             var v = typeof(MainWindow).Assembly.GetName().Version;
             col.Children.Add(Text("HD2 Mod Setting GUI v" + v.Major + "." + v.Minor + "." + v.Build, size: 14, weight: FontWeights.SemiBold));
-            col.Children.Add(UpdateRow());
+            if (!Host.Hosted) col.Children.Add(UpdateRow());
             col.Children.Add(Spaced(Text(Texts.Get("about_d"), "Hint"), 12, 4));
             var link = new Hyperlink(new Run(Repo)) { NavigateUri = new Uri(Repo), Foreground = B("Blue") };
             link.RequestNavigate += (s, e) =>
@@ -1303,7 +1359,7 @@ namespace Hd2ModSettingGui
                 try { Process.Start(new ProcessStartInfo { FileName = Repo, UseShellExecute = true }); } catch (Exception) { }
                 e.Handled = true;
             };
-            col.Children.Add(new TextBlock(link) { FontFamily = (FontFamily)Application.Current.Resources["Mono"], FontSize = 13 });
+            col.Children.Add(new TextBlock(link) { FontFamily = (FontFamily)Theme.Res["Mono"], FontSize = 13 });
             return scroll;
         }
 
@@ -1582,7 +1638,7 @@ namespace Hd2ModSettingGui
             var st = new DockPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
             var pulse = new Ellipse { Width = 8, Height = 8, Fill = B("Blue"), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
             DockPanel.SetDock(pulse, Dock.Left);
-            pulse.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Application.Current.Resources["CBlue"], BlurRadius = 8, ShadowDepth = 0 };
+            pulse.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Theme.Res["CBlue"], BlurRadius = 8, ShadowDepth = 0 };
             pulse.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.35, TimeSpan.FromSeconds(0.8))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } });
             st.Children.Add(pulse);
@@ -1602,11 +1658,11 @@ namespace Hd2ModSettingGui
             // just the band" -- the design's posts and ground line gone)
             var grid = new Grid { Height = 16, Margin = new Thickness(0, 8, 0, 8) };
             var tape = new Border { Height = 16, VerticalAlignment = VerticalAlignment.Top, Background = B("Yellow"), Opacity = 0.9, ClipToBounds = true };
-            tape.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Application.Current.Resources["CYellow"], BlurRadius = 14, ShadowDepth = 0, Opacity = 0.35 };
+            tape.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = (Color)Theme.Res["CYellow"], BlurRadius = 14, ShadowDepth = 0, Opacity = 0.35 };
             var unit = Texts.Get("tape");
             var text = new TextBlock
             {
-                Text = string.Concat(Enumerable.Repeat(unit, 16)), FontFamily = (FontFamily)Application.Current.Resources["Mono"],
+                Text = string.Concat(Enumerable.Repeat(unit, 16)), FontFamily = (FontFamily)Theme.Res["Mono"],
                 FontSize = 13, FontWeight = FontWeights.ExtraBold, Foreground = B("TapeInk"), VerticalAlignment = VerticalAlignment.Center,
             };
             var unitText = new FormattedText(unit, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,

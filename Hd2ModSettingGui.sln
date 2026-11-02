@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hd2ModSettingGui.Tests", "tests\Hd2ModSettingGui.Tests\Hd2ModSettingGui.Tests.csproj", "{54556937-5D3B-4A58-BF26-90AA17F84ADC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hd2ModSettingGui.Plugin", "src\Hd2ModSettingGui.Plugin\Hd2ModSettingGui.Plugin.csproj", "{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,18 @@ Global
 		{54556937-5D3B-4A58-BF26-90AA17F84ADC}.Release|x64.Build.0 = Release|Any CPU
 		{54556937-5D3B-4A58-BF26-90AA17F84ADC}.Release|x86.ActiveCfg = Release|Any CPU
 		{54556937-5D3B-4A58-BF26-90AA17F84ADC}.Release|x86.Build.0 = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|x64.Build.0 = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Debug|x86.Build.0 = Debug|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|x64.ActiveCfg = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|x64.Build.0 = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|x86.ActiveCfg = Release|Any CPU
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,5 +66,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{2453FB43-64EA-41D8-80EF-D766C852CE29} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{54556937-5D3B-4A58-BF26-90AA17F84ADC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{D3106D5C-D76A-41B3-A7F3-F46B8A459D44} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

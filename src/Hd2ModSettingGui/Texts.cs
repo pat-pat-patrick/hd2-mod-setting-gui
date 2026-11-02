@@ -52,6 +52,12 @@ namespace Hd2ModSettingGui
             ["filter"] = ("Filter mods", "筛选 MOD"),
             ["mod_ph"] = ("Mod name", "Mod 名称"),
             ["installed"] = ("Installed mods", "已安装的 MOD"),
+            // hosted by HD2 Mod Quick Deploy: where each mod stands in its library
+            ["place_on"] = ("Enabled mods", "已启用的 MOD"),
+            ["place_off"] = ("Mods not enabled", "未启用的 MOD"),
+            ["place_unknown"] = ("Not in the mod library", "不在 MOD 库中"),
+            ["place_on_mod"] = ("{0} · enabled", "{0} · 已启用"),
+            ["place_off_mod"] = ("{0} · not enabled: changes apply once it is enabled and deployed", "{0} · 未启用：启用并部署后生效"),
             ["groups"] = ("Setting groups", "设置分组"),
             ["search"] = ("Search settings", "搜索设置"),
             ["results"] = ("Search results", "搜索结果"),

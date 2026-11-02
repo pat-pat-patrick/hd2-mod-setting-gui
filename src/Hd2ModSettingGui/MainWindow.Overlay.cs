@@ -60,7 +60,7 @@ namespace Hd2ModSettingGui
         FrameworkElement OverlayRow()
         {
             var line = new DockPanel();
-            var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Application.Current.Resources["Mono"], VerticalAlignment = VerticalAlignment.Top };
+            var btn = new Button { Style = S("Ghost"), MinWidth = 150, FontFamily = (FontFamily)Theme.Res["Mono"], VerticalAlignment = VerticalAlignment.Top };
             var clear = new Button { Content = "×", Style = S("Ghost"), MinWidth = 40, Margin = new Thickness(6, 0, 0, 0), ToolTip = Texts.Get("unbind"), VerticalAlignment = VerticalAlignment.Top };
             void Paint()
             {

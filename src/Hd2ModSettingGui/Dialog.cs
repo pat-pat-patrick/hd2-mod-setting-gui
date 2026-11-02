@@ -10,7 +10,7 @@ namespace Hd2ModSettingGui
     /// Esc or the cancel button says no; the action is the yellow button.</summary>
     static class Dialog
     {
-        static Brush B(string key) => (Brush)Application.Current.Resources[key];
+        static Brush B(string key) => (Brush)Theme.Res[key];
 
         /// <summary>A question: true when the action is chosen.</summary>
         public static bool Ask(Window owner, string text, string action) => Show(owner, text, action, Texts.Get("cancel"));
@@ -25,9 +25,10 @@ namespace Hd2ModSettingGui
                 Owner = owner, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false,
                 SizeToContent = SizeToContent.WidthAndHeight, WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Background = B("Ground700"), BorderBrush = B("Grid"), BorderThickness = new Thickness(1),
-                FontFamily = (FontFamily)Application.Current.Resources["Ui"], Title = Texts.Get("window"),
+                FontFamily = (FontFamily)Theme.Res["Ui"], Title = Texts.Get("window"),
                 MinWidth = 380, MaxWidth = 560,
             };
+            Theme.On(w);
             var col = new StackPanel();
             col.Children.Add(new Border { Height = 3, Background = B("Yellow") });      // the window's tape
             var body = new StackPanel { Margin = new Thickness(24, 20, 24, 20) };
@@ -39,12 +40,12 @@ namespace Hd2ModSettingGui
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 24, 0, 0) };
             body.Children.Add(buttons);
             bool chosen = false;
-            var no = new Button { Content = dismiss, Style = (Style)Application.Current.Resources["Ghost"], MinWidth = 96, IsCancel = true };
+            var no = new Button { Content = dismiss, Style = (Style)Theme.Res["Ghost"], MinWidth = 96, IsCancel = true };
             no.Click += (s, e) => w.Close();
             buttons.Children.Add(no);
             if (action != null)
             {
-                var yes = new Button { Content = action, Style = (Style)Application.Current.Resources["Primary"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0) };
+                var yes = new Button { Content = action, Style = (Style)Theme.Res["Primary"], MinWidth = 96, Margin = new Thickness(8, 0, 0, 0) };
                 yes.Click += (s, e) => { chosen = true; w.Close(); };
                 buttons.Children.Add(yes);
             }

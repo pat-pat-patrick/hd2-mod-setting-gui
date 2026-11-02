@@ -58,10 +58,10 @@ namespace Hd2ModSettingGui
 
         static void Translucent(string key, byte alpha)
         {
-            var b = (SolidColorBrush)Application.Current.Resources[key];
+            var b = (SolidColorBrush)Theme.Res[key];
             var c = b.Color;
             c.A = alpha;
-            if (b.IsFrozen) Application.Current.Resources[key] = new SolidColorBrush(c);
+            if (b.IsFrozen) Theme.Res[key] = new SolidColorBrush(c);
             else b.Color = c;
         }
     }

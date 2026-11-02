@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- HD2QD.Settings.dll: the same window as a plugin of HD2 Mod Quick Deploy (its Plugins
+       page, a window of its own), built from the window's own sources. Hosted, the window
+       learns from the manager which mods are enabled and lists their settings first. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>HD2QD.Settings</AssemblyName>
+    <RootNamespace>Hd2ModSettingGui</RootNamespace>
+    <Version>1.15.0</Version>
+    <Product>HD2 Mod Setting GUI</Product>
+    <Company>pat-pat-patrick</Company>
+    <Copyright>MIT License</Copyright>
+    <DefineConstants>$(DefineConstants);QD_PLUGIN</DefineConstants>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)\..=src</PathMap>
+    <DebugType>none</DebugType>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Plugin.cs" />
+    <Compile Include="..\Hd2ModSettingGui\*.cs" Exclude="..\Hd2ModSettingGui\App.xaml.cs" LinkBase="Window" />
+    <Compile Include="..\Hd2ModSettingGui\Core\*.cs" LinkBase="Window\Core" />
+    <Page Include="..\Hd2ModSettingGui\MainWindow.xaml" Link="MainWindow.xaml" />
+    <Page Include="..\Hd2ModSettingGui\Theme.xaml" Link="Theme.xaml" />
+    <Resource Include="..\Hd2ModSettingGui\app.ico" Link="app.ico" />
+  </ItemGroup>
+
+</Project>
