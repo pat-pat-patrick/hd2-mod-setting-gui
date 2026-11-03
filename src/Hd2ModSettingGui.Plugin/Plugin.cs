@@ -15,6 +15,10 @@ namespace Hd2ModSettingGui
         public const int Api = 2;
         public const string Kind = "window";
 
+        /// <summary>Its button in the manager's title bar: Equalizer (E9E9), sliders, in Segoe
+        /// Fluent Icons / Segoe MDL2 Assets.</summary>
+        public const string Icon = "\uE9E9";
+
         /// <summary>In lang, a language tag ("en", "zh-CN"): from the window's own language
         /// files (Texts), else English.</summary>
         public static string Title(string lang) => Texts.In(lang, "title");
