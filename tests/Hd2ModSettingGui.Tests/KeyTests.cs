@@ -114,23 +114,23 @@ namespace Hd2ModSettingGui.Tests
         {
             // (the user, 10-24: "equal" and "minus" shown in a Chinese window) signs as signs,
             // arrows as arrows, in either language; words Chinese players say in Chinese
-            bool was = Texts.Zh;
+            var was = Texts.Lang;
             try
             {
-                foreach (var zh in new[] { true, false })
+                foreach (var lang in new[] { "zh-CN", "en" })
                 {
-                    Texts.Zh = zh;
+                    Texts.Lang = lang;
                     Assert.Equal(new[] { "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/", "`", "↑", "←" },
                         new[] { "minus", "equal", "open bracket", "close bracket", "backslash", "semicolon", "quote", "comma", "period", "slash", "backtick", "up", "left" }
                             .Select(KeyNames.Label));
                     Assert.Equal(new[] { "Q", "F6", "Num -", "Page Up" }, new[] { "q", "f6", "numpad -", "page up" }.Select(KeyNames.Label));
                 }
-                Texts.Zh = true;
+                Texts.Lang = "zh-CN";
                 Assert.Equal(new[] { "空格", "回车", "左 Ctrl" }, new[] { "space", "enter", "left ctrl" }.Select(KeyNames.Label));
-                Texts.Zh = false;
+                Texts.Lang = "en";
                 Assert.Equal(new[] { "Space", "Enter", "Left Ctrl" }, new[] { "space", "enter", "left ctrl" }.Select(KeyNames.Label));
             }
-            finally { Texts.Zh = was; }
+            finally { Texts.Lang = was; }
         }
     }
 }

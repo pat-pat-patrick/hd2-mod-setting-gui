@@ -124,9 +124,9 @@ namespace Hd2ModSettingGui.Tests
                 var one = Path.Combine(f.Dir, "one_options.json");
                 File.WriteAllText(both, "{\"title\":\"Super Beacon\",\"title_zh\":\"超级信标\",\"settings\":\"both_settings.txt\",\"options\":[]}");
                 File.WriteAllText(one, "{\"title\":\"Ammo Lamp\",\"settings\":\"one_settings.txt\",\"options\":[]}");
-                Assert.Equal("超级信标", ModList.Load(both).TitleIn(true));
-                Assert.Equal("Super Beacon", ModList.Load(both).TitleIn(false));
-                Assert.Equal("Ammo Lamp", ModList.Load(one).TitleIn(true));      // none given: the English one
+                Assert.Equal("超级信标", ModList.Load(both).TitleIn("zh-CN"));
+                Assert.Equal("Super Beacon", ModList.Load(both).TitleIn("en"));
+                Assert.Equal("Ammo Lamp", ModList.Load(one).TitleIn("zh-CN"));      // none given: the English one
             }
         }
 
@@ -330,26 +330,26 @@ namespace Hd2ModSettingGui.Tests
                     "\"ru\":{\"size\":\"Размер\"}}}");
                 var m = ModList.Load(path);
                 Assert.Equal("Demo", m.Title);                                          // the same title is the same mod, in any language
-                Assert.Equal("演示", m.TitleIn(true));
-                Assert.Equal("Demo", m.TitleIn(false));
+                Assert.Equal("演示", m.TitleIn("zh-CN"));
+                Assert.Equal("Demo", m.TitleIn("en"));
                 var size = m.Spec("size");
-                Assert.Equal(("大小", "Size"), (size.Name.In(true), size.Name.In(false)));
-                Assert.Equal(("多大。", "How big."), (size.Hint.In(true), size.Hint.In(false)));
+                Assert.Equal(("大小", "Size"), (size.Name.In("zh-CN"), size.Name.In("en")));
+                Assert.Equal(("多大。", "How big."), (size.Hint.In("zh-CN"), size.Hint.In("en")));
                 Assert.Contains("Размер", size.Name.All);                                // the search finds it in any language
                 var mode = m.Spec("mode");
-                Assert.Equal("Mode", mode.Name.In(true));                               // no translation: as written
-                Assert.Equal(new[] { "关", "Scan", "常显" }, mode.Choices.Select(c => c.Name.In(true)));
+                Assert.Equal("Mode", mode.Name.In("zh-CN"));                               // no translation: as written
+                Assert.Equal(new[] { "关", "Scan", "常显" }, mode.Choices.Select(c => c.Name.In("zh-CN")));
                 Assert.Equal(new[] { "1", "2", "3" }, mode.Choices.Select(c => c.Value));
-                Assert.Equal(new[] { "White", "蓝" }, m.Spec("tint").Choices.Select(c => c.Name.In(true)));
-                Assert.Equal(new[] { "General", "外观" }, m.Pages.Select(p => p.Name.In(true)));
+                Assert.Equal(new[] { "White", "蓝" }, m.Spec("tint").Choices.Select(c => c.Name.In("zh-CN")));
+                Assert.Equal(new[] { "General", "外观" }, m.Pages.Select(p => p.Name.In("zh-CN")));
                 // an old list's [en, zh] reads as before, and its "zh" is the Chinese translation
                 var old = Path.Combine(f.Dir, "old_options.json");
                 File.WriteAllText(old, "{\"title\":\"Old\",\"title_zh\":\"旧\",\"options\":[" +
                     "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"en\":[\"Mode\",\"\"],\"zh\":[\"模式\",\"\"],\"choices\":[[\"Off\",\"关\"],[\"On\",\"开\"]]}]," +
                     "\"pages\":[{\"en\":\"General\",\"zh\":\"通用\",\"keys\":[\"mode\"]}]}");
                 var o = ModList.Load(old);
-                Assert.Equal(("旧", "模式", "开", "通用"), (o.TitleIn(true), o.Spec("mode").Name.In(true), o.Spec("mode").Choices[1].Name.In(true), o.Pages[0].Name.In(true)));
-                Assert.Equal(("Old", "Mode", "On", "General"), (o.TitleIn(false), o.Spec("mode").Name.In(false), o.Spec("mode").Choices[1].Name.In(false), o.Pages[0].Name.In(false)));
+                Assert.Equal(("旧", "模式", "开", "通用"), (o.TitleIn("zh-CN"), o.Spec("mode").Name.In("zh-CN"), o.Spec("mode").Choices[1].Name.In("zh-CN"), o.Pages[0].Name.In("zh-CN")));
+                Assert.Equal(("Old", "Mode", "On", "General"), (o.TitleIn("en"), o.Spec("mode").Name.In("en"), o.Spec("mode").Choices[1].Name.In("en"), o.Pages[0].Name.In("en")));
             }
         }
 
@@ -365,21 +365,21 @@ namespace Hd2ModSettingGui.Tests
                     "{\"key\":\"dist\",\"type\":\"slider\",\"min\":0,\"max\":2,\"default\":0,\"name\":\"Distance\",\"hint\":\"How far.\"}," +
                     "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"name\":\"Mode\",\"choices\":[\"Off\",\"On\"]}]," +
                     "\"translations\":{\"zh-Hans\":{\"mode\":\"模式（作者）\"}}}");
-                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In("zh-CN"));
                 File.WriteAllText(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix),
                     "{\"zh-Hans\":{\"title\":\"镜头\",\"dist\":\"距离\",\"dist.hint\":\"多远。\",\"mode\":\"模式（包）\",\"mode.2\":\"开\",\"gone\":\"无\"}}");
                 var m = ModList.Load(path);
-                Assert.Equal("镜头", m.TitleIn(true));
+                Assert.Equal("镜头", m.TitleIn("zh-CN"));
                 Assert.Equal("Cam", m.Title);                                     // the mod's identity stays its own
-                Assert.Equal(("距离", "多远。"), (m.Spec("dist").Name.In(true), m.Spec("dist").Hint.In(true)));
-                Assert.Equal("模式（作者）", m.Spec("mode").Name.In(true));       // the mod's own translation wins
-                Assert.Equal(new[] { "Off", "开" }, m.Spec("mode").Choices.Select(c => c.Name.In(true)));
-                Assert.Equal("Distance", m.Spec("dist").Name.In(false));
+                Assert.Equal(("距离", "多远。"), (m.Spec("dist").Name.In("zh-CN"), m.Spec("dist").Hint.In("zh-CN")));
+                Assert.Equal("模式（作者）", m.Spec("mode").Name.In("zh-CN"));       // the mod's own translation wins
+                Assert.Equal(new[] { "Off", "开" }, m.Spec("mode").Choices.Select(c => c.Name.In("zh-CN")));
+                Assert.Equal("Distance", m.Spec("dist").Name.In("en"));
                 var before = Protocol.TranslationStamp(f.Dir);
                 File.WriteAllText(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix), "{ broken");
                 File.SetLastWriteTimeUtc(Path.Combine(f.Dir, "cam" + Protocol.TranslationsSuffix), DateTime.UtcNow.AddMinutes(1));
                 Assert.NotEqual(before, Protocol.TranslationStamp(f.Dir));           // a change is seen
-                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));   // a bad file: the list as it is
+                Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In("zh-CN"));   // a bad file: the list as it is
             }
         }
 
@@ -410,11 +410,11 @@ namespace Hd2ModSettingGui.Tests
                 try
                 {
                     Protocol.GameTag = "zh-Hans";
-                    Assert.Equal("距离", ModList.Load(path).Spec("dist").Name.In(true));
+                    Assert.Equal("距离", ModList.Load(path).Spec("dist").Name.In("zh-CN"));
                     Protocol.GameTag = "ru";                                        // the game in Russian: not the Chinese window's
-                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In("zh-CN"));
                     Protocol.GameTag = null;                                        // not known: left out
-                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In(true));
+                    Assert.Equal("Distance", ModList.Load(path).Spec("dist").Name.In("zh-CN"));
                 }
                 finally { Protocol.GameTag = was; }
             }
@@ -509,7 +509,7 @@ namespace Hd2ModSettingGui.Tests
                 File.WriteAllText(Path.Combine(f.Dir, "demo_settings.txt"), "bold=2, 1\nnone=\n#end\n");
                 var s = new ModState(ModList.Load(path));
                 Assert.Equal(Kind.Multi, s.List.Spec("bold").Kind);
-                Assert.Equal("总得分", s.List.Spec("bold").Choices[1].Name.In(true));
+                Assert.Equal("总得分", s.List.Spec("bold").Choices[1].Name.In("zh-CN"));
                 Assert.Equal("1,3", s.List.Spec("bold").DefaultValue);
                 Assert.Equal("", s.List.Spec("none").DefaultValue);              // no default: none taken
                 Assert.Equal("1,2", s.Value("bold"));                             // read as written, put in order

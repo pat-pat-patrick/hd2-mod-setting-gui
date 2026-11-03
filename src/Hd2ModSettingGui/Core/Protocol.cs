@@ -42,9 +42,15 @@ namespace Hd2ModSettingGui.Core
             return null;
         }
 
-        public string In(bool zh) =>
-            (zh ? Find(Protocol.ChineseTags) : Find(Protocol.EnglishTags))
+        /// <summary>The text in the window's language (a tag: "en", "zh-CN"): its translation
+        /// under that tag, or under one the mods use for the same language (Protocol.TagsFor);
+        /// else the mod's own text.</summary>
+        public string In(string lang) =>
+            Find(Protocol.TagsFor(lang))
             ?? (En != "" ? En : Tr.Values.FirstOrDefault(v => v != "") ?? "");
+
+        /// <summary>Each of its texts, for the filter.</summary>
+        public IEnumerable<string> Each => new[] { En }.Concat(Tr.Values).Where(v => !string.IsNullOrEmpty(v));
 
         /// <summary>Every language of it, for the search.</summary>
         public string All => En + " " + string.Join(" ", Tr.Values);
@@ -124,10 +130,9 @@ namespace Hd2ModSettingGui.Core
         public string Name, Title, Version, SettingsFile, Folder;
         /// <summary>The title with its translations ("title_zh" in old lists).</summary>
         public Pair TitleText = new Pair();
-        public string TitleZh => TitleText.Zh == "" ? null : TitleText.Zh;
 
-        /// <summary>The mod's name in the window's language, else its "title".</summary>
-        public string TitleIn(bool zh) => TitleText.In(zh) is var t && t != "" ? t : Title;
+        /// <summary>The mod's name in the window's language (a tag), else its "title".</summary>
+        public string TitleIn(string lang) => TitleText.In(lang) is var t && t != "" ? t : Title;
         public List<OptionSpec> Options = new List<OptionSpec>();
         public List<Page> Pages = new List<Page>();
         public HashSet<string> MenuOwned = new HashSet<string>();
@@ -233,7 +238,7 @@ namespace Hd2ModSettingGui.Core
                 }
             }
             if (m.Pages.Count == 0)
-                m.Pages.Add(new Page { Name = new Pair { En = "Settings", Zh = "设置" }, Keys = m.Options.Select(x => x.Key).ToList() });
+                m.Pages.Add(new Page { Name = Texts.AsPair("settings"), Keys = m.Options.Select(x => x.Key).ToList() });
             if (root.TryGetValue("menu_owned", out var mo) && mo is IList ml)
                 foreach (var k in ml.OfType<string>()) m.MenuOwned.Add(k);
             if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
@@ -318,6 +323,18 @@ namespace Hd2ModSettingGui.Core
         }
         /// <summary>The language tags the window looks for, in order (CowboyBingus's tags).</summary>
         public static readonly string[] ChineseTags = { "zh-Hans", "zh", "zh-CN" }, EnglishTags = { "en" };
+
+        /// <summary>The tags a mod's translation for the window's language can be under, in
+        /// order: for Simplified Chinese the tags above (in their order), else the tag
+        /// itself, then its language alone ("de" for "de-AT").</summary>
+        public static string[] TagsFor(string lang)
+        {
+            if (string.IsNullOrEmpty(lang)) return EnglishTags;
+            if (ChineseTags.Contains(lang, StringComparer.OrdinalIgnoreCase)
+                || lang.Equals("zh-SG", StringComparison.OrdinalIgnoreCase)) return ChineseTags;
+            var dash = lang.IndexOf('-');
+            return dash > 0 ? new[] { lang, lang.Substring(0, dash) } : new[] { lang };
+        }
 
         /// <summary>The game's text language (set by the window, Environs.GameLanguageTag):
         /// a translation table under "game" is taken as that language's. null: not known,

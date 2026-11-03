@@ -62,8 +62,8 @@ namespace Hd2ModSettingGui.Core
             catch (Exception) { return IntPtr.Zero; }
         }
 
-        /// <summary>Chinese when Windows shows Chinese.</summary>
-        public static bool UiChinese => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
+        /// <summary>The language Windows shows, as a tag ("zh-CN", "en-US").</summary>
+        public static string UiLanguage => CultureInfo.CurrentUICulture.Name;
 
         // the game's own codes (seen in the file while the language was switched, 2026-09-29) -> language tags
         static readonly Dictionary<string, string> GameTags = new Dictionary<string, string>

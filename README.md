@@ -264,7 +264,9 @@ build.bat
 It runs the tests (`tests\Hd2ModSettingGui.Tests`), then writes
 `release\HD2 Mod Setting GUI.exe`. `src\Hd2ModSettingGui\Core` holds the
 files' protocol and has no window code in it; the tests run against it with
-the list Super Holo HUD really writes (`tests\fixtures`).
+the list Super Holo HUD really writes (`tests\fixtures`). The window's own
+text is one file per language, `src\Hd2ModSettingGui\Lang\<tag>.json`; a
+language is added by adding a file.
 
 ## Licence
 
@@ -452,7 +454,8 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 
 C# + WPF，基于 .NET Framework 4.8，除此之外不依赖任何库（测试用 xUnit）。
 装好 .NET SDK 8 或更新版本后运行 `build.bat`：先跑测试，再生成
-`release\HD2 Mod Setting GUI.exe`。
+`release\HD2 Mod Setting GUI.exe`。窗口自己的文字每种语言一个文件，即
+`src\Hd2ModSettingGui\Lang\<标签>.json`；增加一种语言就是增加一个文件。
 
 ### 许可
 

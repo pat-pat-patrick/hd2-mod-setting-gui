@@ -5,20 +5,21 @@ using Hd2ModSettingGui.Core;
 
 namespace Hd2ModSettingGui
 {
-    /// <summary>The window as a plugin of HD2 Mod Quick Deploy (its contract: Api, Kind, Title,
-    /// Summary, Open; called by name, nothing shared but strings, numbers, delegates and Json
-    /// shapes). The manager hands over the language and, as "library", every mod in its library
-    /// whose Lua writes lists for this window, with whether it is enabled.</summary>
+    /// <summary>The window as a plugin of HD2 Mod Quick Deploy (its contract, Api 2: Kind,
+    /// Title(lang), Summary(lang), Open; called by name, nothing shared but strings, numbers,
+    /// delegates and Json shapes). The manager hands over the language as a tag ("lang") and,
+    /// as "library", every mod in its library whose Lua writes lists for this window, with
+    /// whether it is enabled.</summary>
     public static class Plugin
     {
-        public const int Api = 1;
+        public const int Api = 2;
         public const string Kind = "window";
 
-        public static string Title(bool zh) => zh ? "HD2 MOD 控制台" : "HD2 Mod Console";
+        /// <summary>In lang, a language tag ("en", "zh-CN"): from the window's own language
+        /// files (Texts), else English.</summary>
+        public static string Title(string lang) => Texts.In(lang, "title");
 
-        public static string Summary(bool zh) => zh
-            ? "HD2 Mod Setting GUI 的设置窗口：编辑各 MOD 的设置，已启用的 MOD 列在前面，未启用及不在库中的 MOD 分开列出。"
-            : "HD2 Mod Setting GUI's window: each mod's settings, with the enabled mods first and the mods that are off or not in the library listed apart.";
+        public static string Summary(string lang) => Texts.In(lang, "plugin_summary");
 
         static MainWindow open;
 
@@ -32,7 +33,7 @@ namespace Hd2ModSettingGui
                 return;
             }
             Host.Library = host.TryGetValue("library", out var l) ? l as Func<List<Dictionary<string, object>>> : null;
-            if (host.TryGetValue("zh", out var z) && z is bool zh) Texts.Zh = zh;
+            Texts.Lang = Texts.Resolve(host.TryGetValue("lang", out var l2) ? l2 as string : null);
             open = new MainWindow();
             open.Closed += (s, e) => open = null;
             open.Show();

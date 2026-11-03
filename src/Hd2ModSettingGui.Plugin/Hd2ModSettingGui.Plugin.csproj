@@ -12,7 +12,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>HD2QD.Settings</AssemblyName>
     <RootNamespace>Hd2ModSettingGui</RootNamespace>
-    <Version>1.15.0</Version>
+    <Version>1.16.0</Version>
     <Product>HD2 Mod Setting GUI</Product>
     <Company>pat-pat-patrick</Company>
     <Copyright>MIT License</Copyright>
@@ -34,6 +34,7 @@
     <Page Include="..\Hd2ModSettingGui\MainWindow.xaml" Link="MainWindow.xaml" />
     <Page Include="..\Hd2ModSettingGui\Theme.xaml" Link="Theme.xaml" />
     <Resource Include="..\Hd2ModSettingGui\app.ico" Link="app.ico" />
+    <EmbeddedResource Include="..\Hd2ModSettingGui\Lang\*.json" LogicalName="Lang.%(Filename).json" />
   </ItemGroup>
 
 </Project>

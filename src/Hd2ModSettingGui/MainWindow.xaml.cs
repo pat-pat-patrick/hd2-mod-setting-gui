@@ -66,10 +66,11 @@ namespace Hd2ModSettingGui
             peekEnd.Tick += (s, e) => Unpeek();
             var args = Environment.GetCommandLineArgs();
             string Arg(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
-            // the language: --lang (tests), else the one chosen last, else Windows's
+            // the language: --lang (tests), else the one chosen last, else Windows's; a tag
+            // ("zh-CN"), the "zh" of older windows read as zh-CN (Texts.FromSaved)
             var lastLang = Environs.LoadConfig().TryGetValue("lang", out var lg) ? lg as string : null;
             peekOn = !(Environs.LoadConfig().TryGetValue("peek", out var pk) && pk is bool pb && !pb);
-            if (!Host.Hosted) Texts.Zh = Arg("--lang") is string l ? l == "zh" : lastLang != null ? lastLang == "zh" : Environs.UiChinese;
+            if (!Host.Hosted) Texts.Lang = Texts.FromSaved(Arg("--lang") ?? lastLang ?? Environs.UiLanguage);
             folder = Arg("--folder");
             settingsOpen = Array.IndexOf(args, "--settings") >= 0;   // (tests and screenshots) opened on the window's settings
             if (folder == null)
@@ -163,12 +164,12 @@ namespace Hd2ModSettingGui
         List<int> MembersOf(string title) => Enumerable.Range(0, mods.Count).Where(i => TitleOf(i) == title).ToList();
         static string Id(ModState st, string key) => st.List.Name + "|" + key;
 
-        // the name of a mod made of these lists: "title_zh" from any of them
-        static string NameOf(IEnumerable<ModList> lists, bool zh)
+        // the name of a mod made of these lists, in a language: a translation from any of them
+        static string NameOf(IEnumerable<ModList> lists, string lang)
         {
             var l = lists.Where(x => x != null).ToList();
             if (l.Count == 0) return null;
-            return l.Select(x => x.TitleIn(zh)).FirstOrDefault(t => t != l[0].Title) ?? l[0].Title;
+            return l.Select(x => x.TitleIn(lang)).FirstOrDefault(t => t != l[0].Title) ?? l[0].Title;
         }
 
         void Open(string title, bool build = true)
@@ -207,7 +208,7 @@ namespace Hd2ModSettingGui
             // the window's own version first (the user, 10-22), then the mods found
             var v = typeof(MainWindow).Assembly.GetName().Version;
             SummaryText.Text = "v" + v.Major + "." + v.Minor + "." + v.Build + " · " +
-                               (Entries().Count == 1 ? Texts.Get("summary_one") : Texts.Get("summary", Entries().Count));
+                               Texts.Get("summary", Entries().Count);
             SettingsBtn.Content = SettingsLabel();
             ReloadBtn.Content = Texts.Get("reload");
             ReloadBtn.ToolTip = Texts.Get("reload_d");
@@ -315,7 +316,7 @@ namespace Hd2ModSettingGui
                                        fg: place == "on" ? B("Muted") : B("Yellow"), size: 12));
             }
             titles.Children.Add(meta);
-            titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Zh), size: 28, weight: FontWeights.Bold));
+            titles.Children.Add(Text(NameOf(members.Select(m => m.List), Texts.Lang), size: 28, weight: FontWeights.Bold));
             DockPanel.SetDock(titles, Dock.Left);
             head.Children.Add(titles);
             var search = Input(Texts.Get("search"), query, v => { query = v; RenderPanel(); RenderGroups(); });
@@ -400,9 +401,10 @@ namespace Hd2ModSettingGui
             {
                 var idx = MembersOf(entry);
                 var lists = idx.Select(i => found[i]).ToList();
-                string title = NameOf(lists, Texts.Zh) ?? entry, other = NameOf(lists, !Texts.Zh) ?? entry;   // the filter finds a mod by either name
-                if (modQuery != "" && title.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
-                    && other.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) < 0
+                string title = NameOf(lists, Texts.Lang) ?? entry;
+                // the filter finds a mod by its name in any language
+                var names = lists.Where(x => x != null).SelectMany(x => x.TitleText.Each.Append(x.Title)).Append(title);
+                if (modQuery != "" && !names.Any(n => n.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) >= 0)
                     && !idx.Any(i => mods[i].Name.IndexOf(modQuery, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
                 bool cur = entry == state.List.Title;
                 var place = PlaceOf(entry);
@@ -437,7 +439,7 @@ namespace Hd2ModSettingGui
             foreach (var m in members)
                 foreach (var p in m.List.Pages)
                 {
-                    gs.Add((gs.Count, p.Name.In(Texts.Zh), p.Keys, m));
+                    gs.Add((gs.Count, p.Name.In(Texts.Lang), p.Keys, m));
                 }
             return gs;
         }
@@ -531,9 +533,9 @@ namespace Hd2ModSettingGui
                     box = null;
                     var h = new StackPanel { Margin = new Thickness(0, i == 0 ? 0 : 24, 0, 8) };
                     // a page's first heading that only says the page's name again: its title left out
-                    bool again = i == 0 && q == "" && spec.Name.In(Texts.Zh) == CurrentGroup().Name;
-                    if (!again) h.Children.Add(Text(spec.Name.In(Texts.Zh), size: 15, weight: FontWeights.Bold));
-                    var about = spec.Hint.In(Texts.Zh);
+                    bool again = i == 0 && q == "" && spec.Name.In(Texts.Lang) == CurrentGroup().Name;
+                    if (!again) h.Children.Add(Text(spec.Name.In(Texts.Lang), size: 15, weight: FontWeights.Bold));
+                    var about = spec.Hint.In(Texts.Lang);
                     if (about != "") h.Children.Add(Spaced(Text(about, "Hint"), 4, 0));
                     panel.Children.Add(h);
                     continue;
@@ -555,7 +557,7 @@ namespace Hd2ModSettingGui
         // the author's own line among the settings: no control, no value
         FrameworkElement NoteRow(OptionSpec spec, bool last)
         {
-            var t = Text(spec.Name.In(Texts.Zh), "Hint");
+            var t = Text(spec.Name.In(Texts.Lang), "Hint");
             t.FontSize = 13;
             t.LineHeight = 19;
             return new Border
@@ -763,7 +765,7 @@ namespace Hd2ModSettingGui
             var line = new DockPanel();
             body.Children.Add(line);
             var reset = ResetIcon(() => Change(st, key, spec.DefaultValue));
-            reset.ToolTip = Texts.Get("reset_one", spec.Name.In(Texts.Zh));
+            reset.ToolTip = Texts.Get("reset_one", spec.Name.In(Texts.Lang));
             DockPanel.SetDock(reset, Dock.Right);
             line.Children.Add(reset);
             Action<object> show = null;
@@ -792,7 +794,7 @@ namespace Hd2ModSettingGui
                     bool quiet = false;
                     foreach (var (value, name) in spec.Choices)
                     {
-                        var rb = new RadioButton { Style = S("Segment"), Content = name.In(Texts.Zh), GroupName = group_, Tag = value };
+                        var rb = new RadioButton { Style = S("Segment"), Content = name.In(Texts.Lang), GroupName = group_, Tag = value };
                         rb.Checked += (s, e) => { if (!quiet) Change(st, key, double.Parse((string)rb.Tag, CultureInfo.InvariantCulture), fromWidget: true); };
                         buttons.Add(rb);
                         seg.Children.Add(rb);
@@ -852,10 +854,10 @@ namespace Hd2ModSettingGui
             }
             control.Margin = new Thickness(0, 0, 8, 0);
             var both = new NameAndControl();
-            both.Children.Add(new TextBlock { Text = spec.Name.In(Texts.Zh), FontSize = 15, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+            both.Children.Add(new TextBlock { Text = spec.Name.In(Texts.Lang), FontSize = 15, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
             both.Children.Add(control);
             line.Children.Add(both);
-            var hint = spec.Hint.In(Texts.Zh);
+            var hint = spec.Hint.In(Texts.Lang);
             if (hint != "") body.Children.Add(Spaced(Text(hint, "Hint"), 4, 0));
             show?.Invoke(st.Value(key));
             rows[Id(st, key)] = (st, key, show, reset);
@@ -1002,7 +1004,7 @@ namespace Hd2ModSettingGui
             var rings = new List<(string Hex, Border Ring)>();
             foreach (var (hex, name) in spec.Choices)
             {
-                var ring = Swatch(hex, name.In(Texts.Zh));
+                var ring = Swatch(hex, name.In(Texts.Lang));
                 ring.MouseLeftButtonUp += (s, e) => Change(st, key, hex);
                 rings.Add((hex, ring));
                 sp.Children.Add(ring);
@@ -1062,7 +1064,7 @@ namespace Hd2ModSettingGui
             bool quiet = false;
             for (int i = 0; i < spec.Choices.Count; i++)
             {
-                var cb = new CheckBox { Style = S("Chip"), Content = spec.Choices[i].Name.In(Texts.Zh), Tag = i + 1 };
+                var cb = new CheckBox { Style = S("Chip"), Content = spec.Choices[i].Name.In(Texts.Lang), Tag = i + 1 };
                 RoutedEventHandler pick = (s, e) =>
                 {
                     if (quiet) return;
@@ -1106,7 +1108,7 @@ namespace Hd2ModSettingGui
                 btn.BorderBrush = waiting ? B("Yellow") : B("Grid");
                 clear.Visibility = cur == "" ? Visibility.Hidden : Visibility.Visible;
                 var other = cur == "" ? null : members.SelectMany(m => m.List.Options.Where(o => o.Kind == Kind.Key && !(m == st && o.Key == key) && (string)m.Value(o.Key) == cur)).FirstOrDefault();
-                same.Text = other == null ? "" : Texts.Get("key_same", other.Name.In(Texts.Zh));
+                same.Text = other == null ? "" : Texts.Get("key_same", other.Name.In(Texts.Lang));
                 same.Visibility = other == null ? Visibility.Collapsed : Visibility.Visible;
             }
             void Take(string name)
@@ -1260,7 +1262,7 @@ namespace Hd2ModSettingGui
         void ResetMod_Click(object sender, RoutedEventArgs e)
         {
             if (state == null) return;
-            if (!Dialog.Ask(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Zh)), Texts.Get("reset"))) return;
+            if (!Dialog.Ask(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Lang)), Texts.Get("reset"))) return;
             foreach (var m in members)
                 if (m.Reset(m.List.Options.Select(o => o.Key).Where(k => k != m.List.ProfileKey))) Did(m);
             Refresh();
@@ -1282,12 +1284,12 @@ namespace Hd2ModSettingGui
             Build();
         }
 
-        void SetLanguage(bool zh)
+        void SetLanguage(string tag)
         {
-            if (Texts.Zh == zh) return;
-            Texts.Zh = zh;
+            if (Texts.Lang == tag) return;
+            Texts.Lang = tag;
             var cfg = Environs.LoadConfig();
-            cfg["lang"] = zh ? "zh" : "en";
+            cfg["lang"] = tag;
             Environs.SaveConfig(cfg);
             Build();
         }
@@ -1306,10 +1308,10 @@ namespace Hd2ModSettingGui
             // the language
             col.Children.Add(Spaced(Text(Texts.Get("language"), "Label"), 32, 8));
             var seg = new StackPanel { Orientation = Orientation.Horizontal };
-            foreach (var (zh, name) in new[] { (true, "中文"), (false, "English") })
+            foreach (var tag in Texts.Languages)            // every language that has a file, each named in itself
             {
-                var rb = new RadioButton { Style = S("Segment"), Content = name, GroupName = "lang", IsChecked = Texts.Zh == zh };
-                rb.Checked += (s, e) => SetLanguage(zh);
+                var rb = new RadioButton { Style = S("Segment"), Content = Texts.In(tag, "lang_name"), GroupName = "lang", IsChecked = Texts.Lang == tag };
+                rb.Checked += (s, e) => SetLanguage(tag);
                 seg.Children.Add(rb);
             }
             col.Children.Add(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = seg, HorizontalAlignment = HorizontalAlignment.Left });
