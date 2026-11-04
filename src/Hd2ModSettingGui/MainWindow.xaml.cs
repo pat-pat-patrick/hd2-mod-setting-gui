@@ -107,8 +107,8 @@ namespace Hd2ModSettingGui
             trStamp = Protocol.TranslationStamp(folder);
             listStamp = Protocol.ListStamp(folder);
             Protocol.GameTag = Environs.GameLanguageTag(folder);
-            mods = Protocol.FindMods(folder);
-            found = mods.Select(m => { try { return ModList.Load(m.Path); } catch (Exception) { return null; } }).ToList();
+            mods = Protocol.Lists(folder, places);
+            found = mods.Select(m => { try { return Protocol.LoadFor(folder, m.Name, m.Path); } catch (Exception) { return null; } }).ToList();
             HandLanguages();
             var open = state?.List.Title;
             if (open != null && !Entries().Contains(open)) open = null;
@@ -142,10 +142,16 @@ namespace Hd2ModSettingGui
             if (read == null) return;
             bool first = places == null;
             places = read;
+            // a list a library mod ships, new or from another mod's folder: read again
+            if (!SameLists(Protocol.Lists(folder, places))) Load();
             if (first && state != null && PlaceOf(state.List.Title) != "on" && Entries().Count > 0 && PlaceOf(Entries()[0]) == "on")
                 Open(Entries()[0]);              // the first view opens an enabled mod
             else if (state != null && !settingsOpen) Build();
         }
+
+        /// <summary>The lists shown are these, from the same files.</summary>
+        bool SameLists(List<(string Name, string Path)> now) =>
+            now.Select(m => m.Name + "|" + m.Path).SequenceEqual(mods.Select(m => m.Name + "|" + m.Path), StringComparer.OrdinalIgnoreCase);
 
         /// <summary>"on", "off" or "unknown" for an entry (its lists, any of them on counts);
         /// "on" while nothing is known.</summary>
@@ -181,7 +187,7 @@ namespace Hd2ModSettingGui
             {
                 try
                 {
-                    var st = new ModState(ModList.Load(mods[i].Path));
+                    var st = new ModState(Protocol.LoadFor(folder, mods[i].Name, mods[i].Path));
                     st.Changed += () => writeTimer.Stop();
                     members.Add(st);
                 }
@@ -1482,8 +1488,7 @@ namespace Hd2ModSettingGui
         {
             running = Environs.GameRunning();
             // a list that appears (or goes) is loaded: the same ones leave all as it is
-            var now = Protocol.FindMods(folder).Select(m => m.Name).ToList();
-            if (!now.SequenceEqual(mods.Select(m => m.Name))) Load();
+            if (!SameLists(Protocol.Lists(folder, places))) Load();
             else if (!writeTimer.IsEnabled && (Protocol.ListStamp(folder) != listStamp || Protocol.TranslationStamp(folder) != trStamp
                      || (++langLook % 5 == 0 && Environs.GameLanguageTag(folder) != Protocol.GameTag))) Load(texts: true);
             // the file changed in the game (and none of ours waits to be written): shown, not written back
@@ -1695,7 +1700,7 @@ namespace Hd2ModSettingGui
 
         void Rescan()
         {
-            if (Protocol.FindMods(folder).Count > 0) { Load(); return; }
+            if (Protocol.Lists(folder, places).Count > 0) { Load(); return; }
             scans++;
             if (scanText != null) scanText.Text = Texts.Get("rescanned");
         }

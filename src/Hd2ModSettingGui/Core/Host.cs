@@ -10,7 +10,7 @@ namespace Hd2ModSettingGui.Core
     public static class Host
     {
         /// <summary>Every mod in the manager's library whose Lua writes lists for this window:
-        /// {name, enabled, settings: [list names]}; null when no manager hosts the window.</summary>
+        /// {name, path, enabled, settings: [list names]}; null when no manager hosts the window.</summary>
         public static Func<List<Dictionary<string, object>>> Library;
 
         public static bool Hosted => Library != null;
@@ -22,6 +22,12 @@ namespace Hd2ModSettingGui.Core
         {
             public string State = "on";
             public List<string> Mods = new List<string>();
+            /// <summary>The list as a library mod ships it, &lt;name&gt;_options.json at the top
+            /// of its folder (the user, 2026-11-04: a mod's settings shown without starting
+            /// the game first): an enabled mod's, else one that is off; null: none ships it.</summary>
+            public string Package;
+            /// <summary>Package is an enabled mod's.</summary>
+            public bool PackageOn;
         }
 
         public static Dictionary<string, Place> Read()
@@ -32,15 +38,34 @@ namespace Hd2ModSettingGui.Core
             {
                 var name = m.TryGetValue("name", out var n) ? n as string : null;
                 bool on = m.TryGetValue("enabled", out var e) && e is bool b && b;
-                var lists = m.TryGetValue("settings", out var s) && s is System.Collections.IEnumerable l ? l.OfType<string>() : Enumerable.Empty<string>();
-                foreach (var list in lists)
+                var lists = (m.TryGetValue("settings", out var s) && s is System.Collections.IEnumerable l ? l.OfType<string>() : Enumerable.Empty<string>()).ToList();
+                var shipped = Shipped(m.TryGetValue("path", out var pa) ? pa as string : null);
+                foreach (var list in lists.Concat(shipped.Keys).Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     if (!by.TryGetValue(list, out var p)) by[list] = p = new Place { State = "off" };
                     if (on) p.State = "on";
                     if (name != null && !p.Mods.Contains(name)) p.Mods.Add(name);
+                    if (shipped.TryGetValue(list, out var file) && (p.Package == null || (on && !p.PackageOn)))
+                    {
+                        p.Package = file;
+                        p.PackageOn = on;
+                    }
                 }
             }
             return by;
+        }
+
+        /// <summary>The lists a mod's folder ships at its top: name -> file.</summary>
+        static Dictionary<string, string> Shipped(string folder)
+        {
+            var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(folder)) return found;
+            try
+            {
+                foreach (var (name, file) in Protocol.FindMods(folder)) found[name] = file;
+            }
+            catch (Exception) { }
+            return found;
         }
     }
 }

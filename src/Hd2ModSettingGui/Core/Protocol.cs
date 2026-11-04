@@ -163,7 +163,10 @@ namespace Hd2ModSettingGui.Core
             }
         }
 
-        public static ModList Load(string path)
+        /// <summary>A list read from its file. folder: the game's folder, where the values
+        /// file and the log are, when the list is read from elsewhere (a mod's own copy in
+        /// the manager's library); null: the list's own folder.</summary>
+        public static ModList Load(string path, string folder = null)
         {
             var file = Path.GetFileName(path);
             var name = file.EndsWith(Protocol.OptionsSuffix, StringComparison.OrdinalIgnoreCase)
@@ -173,7 +176,7 @@ namespace Hd2ModSettingGui.Core
             var m = new ModList
             {
                 Name = name,
-                Folder = Path.GetDirectoryName(path),
+                Folder = folder ?? Path.GetDirectoryName(path),
                 Title = root.TryGetValue("title", out var t) && t is string ts && ts != "" ? ts : name,
                 Version = root.TryGetValue("version", out var v) ? Convert.ToString(v, CultureInfo.InvariantCulture) : "",
                 SettingsFile = root.TryGetValue("settings", out var s) && s is string ss && ss != "" ? ss : name + "_settings.txt",
@@ -394,6 +397,49 @@ namespace Hd2ModSettingGui.Core
                 case string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var r): return r;
                 default: return null;
             }
+        }
+
+        /// <summary>A mod's list for the game's folder, read from path: the game's own
+        /// copy, or the one a library mod ships (Host.Place.Package). Read from a mod's copy,
+        /// the keys the game's menus hold (menu_owned) are still the game copy's: only the
+        /// game knows them.</summary>
+        public static ModList LoadFor(string folder, string name, string path)
+        {
+            var m = ModList.Load(path, folder);
+            var game = Path.Combine(folder, name + OptionsSuffix);
+            if (!SamePath(path, game) && File.Exists(game))
+            {
+                try { m.MenuOwned = ModList.Load(game).MenuOwned; }
+                catch (Exception) { }
+            }
+            return m;
+        }
+
+        public static bool SamePath(string a, string b)
+        {
+            try { return string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase); }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>The lists to show, (name, path): the game folder's, with the manager's
+        /// library (places: Host.Read) in the window that it hosts. A list a library mod
+        /// ships is read from the mod when that mod is enabled (it is what the game runs
+        /// next), or when the game has no copy yet; else the game's copy.</summary>
+        public static List<(string Name, string Path)> Lists(string folder, Dictionary<string, Host.Place> places)
+        {
+            var game = FindMods(folder);
+            if (places == null) return game;
+            var by = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (n, p) in game) by[n] = p;
+            foreach (var kv in places)
+            {
+                var pl = kv.Value;
+                if (pl.Package == null || !File.Exists(pl.Package)) continue;
+                if (pl.PackageOn || !by.ContainsKey(kv.Key)) by[kv.Key] = pl.Package;
+            }
+            var names = game.Select(g => g.Name).ToList();
+            names.AddRange(by.Keys.Where(k => !names.Contains(k, StringComparer.OrdinalIgnoreCase)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase));
+            return names.Select(n => (n, by[n])).ToList();
         }
 
         /// <summary>Every mod's list in a folder: (name, path).</summary>

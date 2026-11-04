@@ -240,6 +240,23 @@ same tables as `translations`:
   `pt-BR`, `ms`, `de`, or the game's own code for any other. Keep the line
   when your mod writes the file itself.
 
+#### Optional: ship the list with your mod
+
+Put the same `<name>_options.json` at the top of your mod's package, beside
+its `manifest.json`. When HD2 Mod Quick Deploy hosts the window, the window
+reads that copy from the manager's library, so players see your settings
+before the game has run your mod, and a new version's new settings at once:
+
+- the copy of an enabled mod is read in place of the game folder's copy (it
+  is the version the game runs next);
+- the copy of a disabled mod is read only when the game folder has none;
+- the values file stays in the game folder, and `menu_owned` still comes
+  from the list your mod writes in game.
+
+Ship it only when the list is the same every time your mod writes it (no
+part of it worked out in game, apart from `menu_owned`). The simplest way is
+to let your build run the mod once and copy the file it writes.
+
 ### Step 2: read the values
 
 - While the game runs, read `<name>_settings.txt` every second or so and
@@ -442,6 +459,19 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
   窗口会把 `game_language=<标签>` 写进你的设置值文件，游戏语言变了会再写一次：
   `zh-Hans`、`zh-Hant`、`en`、`ja`、`ko`、`ru`、`fr`、`es`、`it`、`pl`、`pt-BR`、`ms`、`de`，其他语言写游戏自己的代码。
   mod 自己写这个文件时，请保留这一行。
+
+##### 可选：清单随 mod 一起发布
+
+把同一份 `<名字>_options.json` 放在 mod 发布包的根目录，与 `manifest.json` 并列。
+窗口由 HD2 Mod Quick Deploy 托管时，会从管理器的库里读这一份。这样玩家不用先进游戏就能看到你的设置，
+新版本加的设置也立即可见：
+
+- 已启用的 mod：用包里这份代替游戏文件夹里的那份（下次进游戏运行的就是这个版本）；
+- 未启用的 mod：只在游戏文件夹里没有清单时才用包里这份；
+- 设置值文件仍在游戏文件夹里，`menu_owned` 仍以 mod 在游戏里写的清单为准。
+
+只有每次写出的清单都一样时才这样做（除 `menu_owned` 外，没有要在游戏里才算出来的内容）。
+最简单的做法是：构建时运行一次 mod，把它写出的文件复制进包里。
 
 #### 第二步：读取设置值
 
