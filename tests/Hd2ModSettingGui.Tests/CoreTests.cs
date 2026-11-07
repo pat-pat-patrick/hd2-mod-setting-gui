@@ -173,6 +173,58 @@ namespace Hd2ModSettingGui.Tests
         }
 
         [Fact]
+        public void A_switch_greys_the_rest_of_its_frame_while_it_is_off()
+        {
+            using (var f = new Folder(false))
+            {
+                var path = Path.Combine(f.Dir, "demo_options.json");
+                string T(string key, bool on, string more = "") => "{\"key\":\"" + key + "\",\"type\":\"toggle\",\"default\":" + (on ? "true" : "false") + more + "}";
+                File.WriteAllText(path, "{\"title\":\"Demo\",\"settings\":\"demo_settings.txt\",\"options\":[" +
+                    T("before", true) + "," +
+                    T("radar", false, ",\"switch\":true") + "," +
+                    "{\"key\":\"range\",\"type\":\"slider\",\"min\":0,\"max\":1,\"step\":0.1,\"default\":0.5}," +
+                    "{\"key\":\"note\",\"type\":\"text\",\"name\":\"About the radar.\"}," +
+                    T("dots", true, ",\"switch\":true") + "," +
+                    T("dot_size", true) + "," +
+                    T("after_gap", true, ",\"gap\":true") + "," +
+                    T("lines", true, ",\"switch\":true") + "," +
+                    "{\"key\":\"look\",\"type\":\"heading\",\"name\":\"Look\"}," +
+                    T("after_heading", true) + "," +
+                    "{\"key\":\"mode\",\"type\":\"choice\",\"default\":1,\"switch\":true,\"choices\":[\"A\",\"B\"]}," +
+                    T("after_choice", true) + "]," +
+                    "\"pages\":[{\"name\":\"One\",\"keys\":[\"before\",\"radar\",\"range\",\"note\",\"dots\",\"dot_size\",\"after_gap\",\"lines\"]}," +
+                    "{\"name\":\"Two\",\"keys\":[\"look\",\"after_heading\",\"mode\",\"after_choice\",\"range\"]}]}");
+                var s = new ModState(ModList.Load(path));
+                string By(string k) => s.List.Spec(k).SwitchedBy;
+                Assert.Null(By("before"));                               // above the switch
+                Assert.Null(By("radar"));
+                Assert.Equal("radar", By("range"));                      // its first page decides
+                Assert.Equal("radar", By("note"));                       // the author's lines too
+                Assert.Equal("radar", By("dots"));                       // a switch inside a switch's frame
+                Assert.Equal("dots", By("dot_size"));
+                Assert.Null(By("after_gap"));                            // a gap ends the frame
+                Assert.Null(By("lines"));
+                Assert.Null(By("after_heading"));                        // so does a heading (and a page)
+                Assert.False(s.List.Spec("mode").Switch);                // only a toggle can be one
+                Assert.Null(By("after_choice"));
+
+                Assert.Equal("radar", s.OffSwitch("range"));             // radar off: its whole frame
+                Assert.Equal("radar", s.OffSwitch("dot_size"));          // the outer one, the one the player can turn on
+                Assert.Null(s.OffSwitch("radar"));                       // the switch itself never
+                s.Set("radar", true);
+                Assert.Null(s.OffSwitch("range"));
+                Assert.Null(s.OffSwitch("dot_size"));
+                s.Set("dots", false);
+                Assert.Equal("dots", s.OffSwitch("dot_size"));
+                Assert.Null(s.OffSwitch("range"));
+                s.Set("radar", false);
+                Assert.Equal("radar", s.OffSwitch("dot_size"));
+                s.Save();
+                Assert.Contains("range=0.5", File.ReadAllText(Path.Combine(f.Dir, "demo_settings.txt")));   // greyed, still written
+            }
+        }
+
+        [Fact]
         public void A_profile_is_a_choice_the_list_names()
         {
             using (var f = new Folder(false))

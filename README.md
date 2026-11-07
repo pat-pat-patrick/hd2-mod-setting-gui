@@ -221,6 +221,12 @@ same tables as `translations`:
 - **`"gap": true` on a setting.** A space above it: it and the settings
   after it get a frame of their own, like a `heading` with no title (Mod
   Options Menu's own `gap`).
+- **`"switch": true` on a toggle.** While it is off, the settings after it
+  in its frame (up to the next `heading` or `gap`) are greyed out and
+  cannot be changed; hovering one names the switch to turn on. Their values
+  stay as they are and are still written. A switch inside another switch's
+  frame is under that one too. Your mod still decides what an off switch
+  means in game.
 - **Several lists with the same `title`** show as one mod: their pages side
   by side, each list still written to its own values file.
 - **`"profile": "<key>"`** names a `choice` setting that picks your mod's
@@ -449,6 +455,9 @@ mod 一加载就写 `<名字>_options.json`，之后只在内容变化时重写�
 - **设置项上写 `"peek": true`**：玩家改它的时候，窗口只留下这个控件，能直接看到游戏里的效果。
   适合需要看效果的设置（大小、颜色、位置），不适合看菜单就能确认的设置。玩家可以在窗口设置里关掉。
 - **设置项上写 `"gap": true`**：在它上面空一段，它和后面的设置单独成一个框，相当于没有标题的 `heading`（和 Mod Options Menu 的 `gap` 一样）。
+- **开关上写 `"switch": true`**：这个开关关闭时，同一个框里它后面的设置（到下一个 `heading` 或 `gap` 为止）全部变灰，不能修改；
+  鼠标停在上面会提示要先打开哪个开关。这些设置的值保持不变，照常写入文件。开关在另一个开关的框里时，也受外层开关控制。
+  开关关闭后游戏里怎么处理，仍由 mod 自己决定。
 - **`title` 相同的几份清单**算同一个模组：各自的分组并排显示，但每份清单仍写它自己的设置值文件。
 - **`"profile": "<key>"`**：指向一个 `choice` 设置，表示 mod 自己用它切换配置。
   它变了以后，窗口会读回 mod 为这个配置写入的值；恢复默认不会改它。

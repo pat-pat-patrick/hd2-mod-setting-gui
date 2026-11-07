@@ -73,6 +73,7 @@
   "applied": "Applied in game · {0}",
   "waiting": "Saved {0} · waiting for the game",
   "saved_off": "Saved {0} · applies at the next launch",
+  "switched_off": "Turn on “{0}” to change this",
   "owned": "Set in the in-game Mod Options Menu",
   "hex_bad": "Colour format: #RRGGBB, e.g. #5EE7FF",
   "pick": "Pick a colour",

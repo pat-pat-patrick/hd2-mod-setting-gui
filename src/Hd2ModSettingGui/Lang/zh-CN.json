@@ -72,6 +72,7 @@
   "applied": "已即时生效 · {0}",
   "waiting": "已保存 {0} · 等待游戏应用",
   "saved_off": "已保存 {0} · 下次进游戏生效",
+  "switched_off": "打开「{0}」后才能修改",
   "owned": "由游戏内 Mod Options Menu 管理",
   "hex_bad": "颜色格式：#RRGGBB，例如 #5EE7FF",
   "pick": "取色",

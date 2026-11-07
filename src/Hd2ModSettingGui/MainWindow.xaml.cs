@@ -55,6 +55,8 @@ namespace Hd2ModSettingGui
         bool peekOn = true;          // the window's setting (config.json "peek"); a setting peeks only when its mod asks too
         bool settingsOpen;
         readonly Dictionary<string, FrameworkElement> controlOf = new Dictionary<string, FrameworkElement>();
+        // the rows under a switch ("switch": true), greyed while it is off (PaintSwitches)
+        readonly Dictionary<string, (ModState St, string Key, Border Row)> switched = new Dictionary<string, (ModState, string, Border)>();
         readonly DispatcherTimer peekEnd = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         FrameworkElement peekOf;
         readonly Dictionary<string, Action> keyPaint = new Dictionary<string, Action>();   // the key rows, painted again when any key changes
@@ -225,6 +227,7 @@ namespace Hd2ModSettingGui
             ResetModBtn.Content = Texts.Get("reset_mod");
             rows.Clear();
             controlOf.Clear();
+            switched.Clear();
             keyPaint.Clear();
             if (settingsOpen)
             {
@@ -490,6 +493,7 @@ namespace Hd2ModSettingGui
             if (panel == null || state == null) return;
             panel.Children.Clear();
             rows.Clear();
+            switched.Clear();
             var q = query.Trim();
             var list = new List<(string Group, string Key, ModState Owner)>();
             if (q != "")
@@ -556,12 +560,38 @@ namespace Hd2ModSettingGui
                 }
                 var next = i == list.Count - 1 ? null : list[i + 1].Owner.List.Spec(list[i + 1].Key);
                 bool last = next == null || next.Kind == Kind.Heading || next.Gap;
-                box.Children.Add(spec.Kind == Kind.Text ? NoteRow(spec, last) : Row(list[i].Owner, list[i].Key, list[i].Group, last));
+                box.Children.Add(Switched(list[i].Owner, list[i].Key,
+                    spec.Kind == Kind.Text ? NoteRow(spec, last) : Row(list[i].Owner, list[i].Key, list[i].Group, last)));
             }
         }
 
+        // a row under a switch: kept, to be greyed while the switch is off
+        Border Switched(ModState st, string key, Border row)
+        {
+            if (st.List.Spec(key)?.SwitchedBy == null) return row;
+            switched[Id(st, key)] = (st, key, row);
+            row.Background = Brushes.Transparent;               // its tip shows over the whole row
+            ToolTipService.SetShowOnDisabled(row, true);
+            PaintSwitched(st, key, row);
+            return row;
+        }
+
+        void PaintSwitches()
+        {
+            foreach (var r in switched.Values) PaintSwitched(r.St, r.Key, r.Row);
+        }
+
+        // greyed and not to be changed, its line below kept as it was; the tip names the switch
+        void PaintSwitched(ModState st, string key, Border row)
+        {
+            var off = st.OffSwitch(key);
+            row.IsEnabled = off == null;
+            row.Child.Opacity = off == null ? 1 : 0.4;
+            row.ToolTip = off == null ? null : Texts.Get("switched_off", st.List.Spec(off)?.Name.In(Texts.Lang) ?? off);
+        }
+
         // the author's own line among the settings: no control, no value
-        FrameworkElement NoteRow(OptionSpec spec, bool last)
+        Border NoteRow(OptionSpec spec, bool last)
         {
             var t = Text(spec.Name.In(Texts.Lang), "Hint");
             t.FontSize = 13;
@@ -763,7 +793,7 @@ namespace Hd2ModSettingGui
         }
 
         // ---------------------------------------------------------------- a setting
-        FrameworkElement Row(ModState st, string key, string group, bool last)
+        Border Row(ModState st, string key, string group, bool last)
         {
             var spec = st.List.Spec(key);
             var body = new StackPanel { Margin = new Thickness(16, 12, 16, 12) };
@@ -1191,6 +1221,7 @@ namespace Hd2ModSettingGui
             if (peekOn && running && st.List.Spec(key)?.Peek == true && controlOf.TryGetValue(Id(st, key), out var c)) Peek(c);
             foreach (var p in keyPaint.Values) p();
             PaintReset(st, key);
+            PaintSwitches();
             RenderGroups();
             RenderMods();
             writeTimer.Stop();
@@ -1221,6 +1252,7 @@ namespace Hd2ModSettingGui
                 PaintReset(r.St, r.Key);
             }
             foreach (var p in keyPaint.Values) p();
+            PaintSwitches();
             RenderGroups();
             RenderMods();
         }

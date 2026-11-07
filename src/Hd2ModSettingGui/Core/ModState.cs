@@ -75,6 +75,17 @@ namespace Hd2ModSettingGui.Core
             }
         }
 
+        /// <summary>The switch that greys this row out: of the switches it is under that are
+        /// off, the outermost (the one the player can turn on); null: it can be changed.</summary>
+        public string OffSwitch(string key)
+        {
+            string off = null;
+            var seen = new HashSet<string>();
+            for (var s = List.Spec(key)?.SwitchedBy; s != null && seen.Add(s); s = List.Spec(s)?.SwitchedBy)
+                if (!(Value(s) is bool b && b)) off = s;
+            return off;
+        }
+
         public bool IsChanged(string key)
         {
             var spec = List.Spec(key);

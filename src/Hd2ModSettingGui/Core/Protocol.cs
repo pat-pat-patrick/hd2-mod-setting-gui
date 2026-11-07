@@ -82,6 +82,13 @@ namespace Hd2ModSettingGui.Core
         /// gap): it and the rows after it in a frame of their own, as after a
         /// heading, with no title.</summary>
         public bool Gap;
+        /// <summary>A toggle that switches its frame ("switch": true; the user, 11-08): while it
+        /// is off, the rows after it up to the next heading or gap are greyed and cannot be
+        /// changed. Only a toggle can be one.</summary>
+        public bool Switch;
+        /// <summary>The switch this row is under (the nearest one above it in its frame, on its
+        /// first page); null: none. A switch inside another's frame is under that one.</summary>
+        public string SwitchedBy;
 
         /// <summary>A setting with a value; a heading (a small group's title, the
         /// rows after it in a frame of their own) and a text (a line of the
@@ -196,6 +203,7 @@ namespace Hd2ModSettingGui.Core
                     if (spec.Step <= 0) spec.Step = (spec.Max - spec.Min) / 100 > 0 ? (spec.Max - spec.Min) / 100 : 1;
                     spec.Peek = o.TryGetValue("peek", out var pk) && pk is bool pb && pb;
                     spec.Gap = o.TryGetValue("gap", out var gp) && gp is bool gb && gb;
+                    spec.Switch = spec.Kind == Kind.Toggle && o.TryGetValue("switch", out var sw) && sw is bool swb && swb;
                     var en = o.TryGetValue("en", out var e) ? e as IList : null;
                     var zh = o.TryGetValue("zh", out var z) ? z as IList : null;
                     spec.Name = new Pair { En = o.TryGetValue("name", out var nm) && nm is string nms ? nms : Item(en, 0), Zh = Item(zh, 0) };
@@ -242,6 +250,7 @@ namespace Hd2ModSettingGui.Core
             }
             if (m.Pages.Count == 0)
                 m.Pages.Add(new Page { Name = Texts.AsPair("settings"), Keys = m.Options.Select(x => x.Key).ToList() });
+            m.FindSwitches();
             if (root.TryGetValue("menu_owned", out var mo) && mo is IList ml)
                 foreach (var k in ml.OfType<string>()) m.MenuOwned.Add(k);
             if (root.TryGetValue("profile", out var pf) && pf is string pfk && m.Spec(pfk)?.Kind == Kind.Choice)
@@ -295,6 +304,26 @@ namespace Hd2ModSettingGui.Core
                     target = o.Choices[n - 1].Name;
             }
             if (target != null && !(fill && target.Tr.ContainsKey(lang))) target.Tr[lang] = text;
+        }
+
+        // each row's switch, as the pages show them: a frame ends at a heading or a gap, and
+        // a switch is the switch of the rows after it in its frame (a row on two pages: its first)
+        void FindSwitches()
+        {
+            var done = new HashSet<string>();
+            foreach (var page in Pages)
+            {
+                string on = null;
+                foreach (var key in page.Keys)
+                {
+                    var spec = Spec(key);
+                    if (spec == null) continue;
+                    if (spec.Kind == Kind.Heading || spec.Gap) on = null;
+                    if (spec.Kind == Kind.Heading) continue;
+                    if (done.Add(key)) spec.SwitchedBy = on;
+                    if (spec.Switch) on = key;
+                }
+            }
         }
 
         static string Item(IList l, int i) => l != null && l.Count > i && l[i] is string s ? s : "";
