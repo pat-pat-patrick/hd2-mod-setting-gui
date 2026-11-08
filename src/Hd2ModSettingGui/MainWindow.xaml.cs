@@ -131,7 +131,10 @@ namespace Hd2ModSettingGui
         // ---------------------------------------------------------------- hosted by Quick Deploy
         // which mod in the manager's library writes each list, and whether it is enabled
         // (Host); null until read, and always on the window's own
-        Dictionary<string, Host.Place> places;
+        Dictionary<string, Host.Place> library;
+        // the library is the official game's: on HellForge's side (where the manager does not
+        // deploy) every list is the folder's own, as on the window's own
+        Dictionary<string, Host.Place> places => onHellForge ? null : library;
         bool readingPlaces;
 
         async void ReadPlaces()
@@ -143,8 +146,8 @@ namespace Hd2ModSettingGui
             catch (Exception) { read = null; }       // the manager could not say: the lists as on the window's own
             finally { readingPlaces = false; }
             if (read == null) return;
-            bool first = places == null;
-            places = read;
+            bool first = library == null;
+            library = read;
             // a list a library mod ships, new or from another mod's folder: read again
             if (!SameLists(Protocol.Lists(folder, places))) Load();
             if (first && state != null && PlaceOf(state.List.Title) != "on" && Entries().Count > 0 && PlaceOf(Entries()[0]) == "on")
@@ -1374,12 +1377,9 @@ namespace Hd2ModSettingGui
             });
             col.Children.Add(row);
 
-            // HellForge's installation (the window hosted by Quick Deploy keeps to the official game)
-            if (!Host.Hosted)
-            {
-                col.Children.Add(Spaced(Text(Texts.Get("side_hellforge"), "Label"), 32, 8));
-                col.Children.Add(HellForgeRow());
-            }
+            // HellForge's installation
+            col.Children.Add(Spaced(Text(Texts.Get("side_hellforge"), "Label"), 32, 8));
+            col.Children.Add(HellForgeRow());
 
             // the peek
             col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));

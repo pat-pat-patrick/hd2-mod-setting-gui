@@ -70,7 +70,9 @@ of its own, which the window finds by itself:
 - While a HellForge run plays in its sandbox, the window writes that run's
   copy, so changes apply at once and are kept when the game ends.
 
-The window hosted by Quick Deploy keeps to the official game.
+The window hosted by Quick Deploy has the switch too. Quick Deploy deploys
+to the official game only, so what its library says (which mods are enabled,
+the lists they ship) is used on the Official side alone.
 
 "Settings" in the header opens the window's own settings: the language
 (at first Windows' own, then the one you chose), the folder with the
@@ -389,7 +391,7 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。
 - 游戏启动后，切换会自动跟到正在运行的那一边。
 - HellForge 用沙盒运行游戏时，窗口改的是这一局的那份，改动马上生效，游戏结束后也会保留。
 
-作为 Quick Deploy 插件运行时，窗口只管正版游戏。
+作为 Quick Deploy 插件运行时也有这个切换。Quick Deploy 只部署到正版游戏，所以它的库里的信息（哪些 mod 已启用、mod 自带的设置清单）只用在 Official 这一边。
 
 页头的“设置”打开窗口自己的设置：语言（第一次跟随 Windows，之后沿用上次的选择）、设置列表所在
 文件夹、上面说的隐藏窗口（默认开启）、在游戏中呼出的按键，以及本仓库的地址。

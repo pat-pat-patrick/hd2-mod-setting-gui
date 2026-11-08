@@ -9,11 +9,12 @@ namespace Hd2ModSettingGui
 {
     // (the user, 2026-11-08: "让它原生支持 HellForge。界面上有个切换"; the switch says
     // "Official" and "HellForge", shown only where HellForge is found; it follows the game
-    // that runs; the window hosted by Quick Deploy keeps to the official game) The mods'
-    // folder of the side shown: the official game's, or HellForge's (Core\HellForge.cs).
+    // that runs; "插件也可以支持 HellForge，虽然现在部署不了": hosted by Quick Deploy too, the
+    // library kept to the official side) The mods' folder of the side shown: the official
+    // game's, or HellForge's (Core\HellForge.cs).
     public partial class MainWindow
     {
-        string hfInstall;               // the installation; null: none found, hosted, or --folder given
+        string hfInstall;               // the installation; null: none found, or --folder given
         bool onHellForge;               // the side shown
         HellForge.Status hfStatus;      // as HellForge.Cli.exe status last said; null: not yet
         bool hfReading, hfGameWas;
@@ -21,7 +22,7 @@ namespace Hd2ModSettingGui
 
         void FindHellForge(bool fixedFolder)
         {
-            if (Host.Hosted || fixedFolder) return;
+            if (fixedFolder) return;
             hfLook = true;
             var cfg = Environs.LoadConfig();
             var chosen = cfg.TryGetValue("hellforge_dir", out var d) ? d as string : null;
@@ -37,7 +38,7 @@ namespace Hd2ModSettingGui
             ReadHellForge();
         }
 
-        bool hfLook;                    // HellForge looked for (not hosted, no --folder)
+        bool hfLook;                    // HellForge looked for (no --folder)
         int hfLookTick;
 
         // kept, so a place found once (from a HellForge program that ran) is known at the next start
