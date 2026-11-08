@@ -129,12 +129,12 @@ namespace Hd2ModSettingGui
             if (hf) ReadHellForge();
         }
 
-        // at the top of the mods' column, where HellForge is found: which game's mods are shown
-        // (the header had no room for it beside the status)
-        void AddSideSwitch(Panel to)
+        // in the title bar, beside the window's name, where HellForge is found: which game's
+        // mods are shown (the user, 11-08: in the title bar, not the mods' column)
+        void PaintSide()
         {
-            if (hfInstall == null) return;
-            to.Children.Add(Text(Texts.Get("side"), "Label", margin: null));
+            SideBox.Visibility = hfInstall == null ? Visibility.Collapsed : Visibility.Visible;
+            if (hfInstall == null) { SideBox.Child = null; return; }
             var seg = new System.Windows.Controls.Primitives.UniformGrid { Rows = 1 };
             foreach (var (hf, key) in new[] { (false, "side_official"), (true, "side_hellforge") })
             {
@@ -142,7 +142,7 @@ namespace Hd2ModSettingGui
                 rb.Checked += (s, e) => SetSide(hf);
                 seg.Children.Add(rb);
             }
-            to.Children.Add(Spaced(new Border { BorderBrush = B("Grid"), BorderThickness = new Thickness(1), Child = seg }, 6, 20));
+            SideBox.Child = seg;
         }
 
         // in the settings page: the installation, or that none was found, and a folder to choose

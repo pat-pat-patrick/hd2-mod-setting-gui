@@ -74,7 +74,6 @@
   "waiting": "Saved {0} · waiting for the game",
   "saved_off": "Saved {0} · applies at the next launch",
   "switched_off": "Turn on “{0}” to change this",
-  "side": "Game",
   "side_official": "Official",
   "side_hellforge": "HellForge",
   "hf_none": "No HellForge installation found.",

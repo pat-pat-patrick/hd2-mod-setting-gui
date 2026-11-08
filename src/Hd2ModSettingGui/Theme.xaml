@@ -196,11 +196,12 @@
     <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
           <Border x:Name="b" Background="Transparent" Padding="12,0" MinHeight="32" Margin="2">
-            <ContentPresenter VerticalAlignment="Center"/>
+            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">

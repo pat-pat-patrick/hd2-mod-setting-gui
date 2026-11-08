@@ -229,6 +229,7 @@ namespace Hd2ModSettingGui
             CloseBtn.ToolTip = Texts.Get("close");
             UndoBtn.Content = Texts.Get("undo");
             ResetModBtn.Content = Texts.Get("reset_mod");
+            PaintSide();
             rows.Clear();
             controlOf.Clear();
             switched.Clear();
@@ -298,7 +299,6 @@ namespace Hd2ModSettingGui
             // the list scrolls under its fixed head (the user, 10-24: a long one ran out of room)
             var nav = new DockPanel { Margin = new Thickness(16, 24, 16, 16) };
             var navHead = new StackPanel();
-            AddSideSwitch(navHead);
             navHead.Children.Add(Text(Texts.Get("filter"), "Label", margin: null));
             navHead.Children.Add(Spaced(Input(Texts.Get("mod_ph"), modQuery, v => { modQuery = v; RenderMods(); }), 6, 16));
             if (places == null) navHead.Children.Add(Text(Texts.Get("installed"), "Label"));
@@ -1593,13 +1593,37 @@ namespace Hd2ModSettingGui
             }
         }
 
+        string statusText = "";
+
+        void ConnPanel_SizeChanged(object sender, SizeChangedEventArgs e) => FitStatus();
+
+        // the header's status in the room left beside the HellForge switch: whole, else its part
+        // before " · ", else the dot alone; cut short, the whole text is its tooltip
+        void FitStatus()
+        {
+            double room = ConnPanel.ActualWidth - 16;              // the dot and its gap
+            double Width(string t)
+            {
+                ConnText.Text = t;
+                ConnText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                return ConnText.DesiredSize.Width;
+            }
+            int cut = statusText.IndexOf(" · ", StringComparison.Ordinal);
+            var half = cut > 0 ? statusText.Substring(0, cut) : statusText;
+            var shown = Width(statusText) <= room ? statusText : Width(half) <= room ? half : "";
+            ConnText.Text = shown;
+            ConnLine.Visibility = room < -8 ? Visibility.Hidden : Visibility.Visible;   // not even the dot (before the first layout)
+            ConnLine.ToolTip = shown == statusText ? null : statusText;
+        }
+
         void PaintStatus()
         {
             // no mod yet: the empty page says what it waits for (the header said it a second time)
             ConnPanel.Visibility = state == null ? Visibility.Collapsed : Visibility.Visible;
             if (state == null) return;
             ConnDot.Fill = running ? B("Blue") : B("Muted");
-            ConnText.Text = Texts.Get(running ? "running" : "not_running");
+            statusText = Texts.Get(running ? "running" : "not_running");
+            FitStatus();
             var colour = B("Muted");
             var last = members.Where(m => m.SavedAt != null).OrderByDescending(m => m.SavedAt).FirstOrDefault();
             if (last == null) FootText.Text = Texts.Get("idle");
@@ -1626,7 +1650,6 @@ namespace Hd2ModSettingGui
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
             var nav = new StackPanel { Margin = new Thickness(16, 24, 16, 16) };
-            AddSideSwitch(nav);
             nav.Children.Add(Spaced(Text(Texts.Get("installed"), "Label"), 0, 8, 8));
             foreach (var k in new[] { 1.0, 0.6, 0.3 })
                 nav.Children.Add(new Border
