@@ -49,6 +49,51 @@ namespace Hd2ModSettingGui.Core
             catch (Exception) { return false; }
         }
 
+        /// <summary>Whether a program of that name runs (the system's list, by name only).</summary>
+        public static bool Running(string name)
+        {
+            try
+            {
+                var p = Process.GetProcessesByName(name);
+                foreach (var x in p) x.Dispose();
+                return p.Length > 0;
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>The exe of every process of that name ("" where it cannot be read). Not for
+        /// the game: the window never opens its process.</summary>
+        public static List<string> ExesOf(string name)
+        {
+            var found = new List<string>();
+            try
+            {
+                foreach (var x in Process.GetProcessesByName(name))
+                {
+                    var path = "";
+                    var h = OpenProcess(0x1000, false, x.Id);        // PROCESS_QUERY_LIMITED_INFORMATION
+                    if (h != IntPtr.Zero)
+                    {
+                        var sb = new StringBuilder(1024);
+                        int n = sb.Capacity;
+                        if (QueryFullProcessImageName(h, 0, sb, ref n)) path = sb.ToString(0, n);
+                        CloseHandle(h);
+                    }
+                    found.Add(path);
+                    x.Dispose();
+                }
+            }
+            catch (Exception) { }
+            return found;
+        }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool CloseHandle(IntPtr h);
+
         /// <summary>The game's main window; IntPtr.Zero when it does not run (or has none yet).</summary>
         public static IntPtr GameWindow()
         {

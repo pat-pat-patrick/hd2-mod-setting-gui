@@ -58,6 +58,20 @@ The game has to run in borderless windowed mode. The window holds the key
 only while the game runs, so other programs keep it the rest of the time.
 The key can be changed or cleared in the window's settings.
 
+**HellForge.** Where [HellForge](https://github.com/SkyeShade/HellForge) is
+installed, a switch at the top of the mods' column picks the game:
+**Official** or **HellForge**. HellForge keeps its mods' settings in a folder
+of its own, which the window finds by itself:
+
+- The installation is found in its default place, through a HellForge
+  shortcut, or from HellForge's launcher while it runs. Another one can be
+  chosen in the window's settings.
+- When a game starts, the switch follows it.
+- While a HellForge run plays in its sandbox, the window writes that run's
+  copy, so changes apply at once and are kept when the game ends.
+
+The window hosted by Quick Deploy keeps to the official game.
+
 "Settings" in the header opens the window's own settings: the language
 (at first Windows' own, then the one you chose), the folder with the
 settings lists, the hiding above (on by default), the key over the game,
@@ -87,6 +101,16 @@ off in the window's settings ("Check for updates automatically"); the
 
 If the game's Mod Options Menu holds a setting, that setting is set there;
 the window shows it and says so.
+
+With HellForge, it touches the same two files in HellForge's folder,
+`<installation>\userdata\environment\Roaming\Arrowhead\Helldivers2` (while a
+sandboxed run plays, that run's copy), and makes the folder when it is
+missing: a mod's Lua cannot make folders, and without it the mod reads no
+settings. When a HellForge game starts or ends, the window runs HellForge's
+own `app\cli\HellForge.Cli.exe status` (read only), and it reads the path of
+HellForge's launcher to find the installation. It does not open the game's
+process for this either: the two games are told apart by the names of the
+programs that run.
 
 ## For mod authors
 
@@ -358,10 +382,25 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。
 游戏需要使用无边框窗口模式。窗口只在游戏运行时占用这个键，其余时间其他程序照常使用。
 这个键可以在窗口设置里更换或清除。
 
+**HellForge**：电脑上装有 [HellForge](https://github.com/SkyeShade/HellForge) 时，左栏最上面有一个切换，选择
+**Official** 或 **HellForge**。HellForge 的 mod 设置放在它自己的文件夹里，窗口会自己找到：
+
+- 安装位置按默认位置、HellForge 快捷方式、或正在运行的 HellForge 启动器去找；也可以在窗口设置里另选。
+- 游戏启动后，切换会自动跟到正在运行的那一边。
+- HellForge 用沙盒运行游戏时，窗口改的是这一局的那份，改动马上生效，游戏结束后也会保留。
+
+作为 Quick Deploy 插件运行时，窗口只管正版游戏。
+
 页头的“设置”打开窗口自己的设置：语言（第一次跟随 Windows，之后沿用上次的选择）、设置列表所在
 文件夹、上面说的隐藏窗口（默认开启）、在游戏中呼出的按键，以及本仓库的地址。
 
 如果某个设置由游戏内的 Mod Options Menu 管理，就要在那里修改；窗口会显示并注明。
+
+使用 HellForge 时，窗口碰的是 HellForge 文件夹里的同样两个文件：
+`<安装位置>\userdata\environment\Roaming\Arrowhead\Helldivers2`（沙盒运行中时是这一局的那份）。
+这个文件夹不存在时窗口会建出来，因为 mod 的 Lua 不能建文件夹，没有它 mod 就读不到设置。
+HellForge 的游戏启动或结束时，窗口会运行 HellForge 自带的 `app\cli\HellForge.Cli.exe status`（只读），
+并读取 HellForge 启动器的路径来找安装位置。这里同样不打开游戏进程：两边的游戏靠正在运行的程序名区分。
 
 ### 给 mod 作者
 

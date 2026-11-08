@@ -84,9 +84,10 @@ namespace Hd2ModSettingGui
                 var cfg = Environs.LoadConfig();
                 if (cfg.Remove("game_dir")) Environs.SaveConfig(cfg);
             }
+            FindHellForge(fixedFolder: Arg("--folder") != null);
             writeTimer.Tick += (s, e) => { writeTimer.Stop(); Write(); };
             tick.Tick += (s, e) => Tick();
-            running = Environs.GameRunning();
+            running = GameRunningHere(follow: false);
             LoadOverlayKey();
             Load();
             tick.Start();
@@ -108,7 +109,7 @@ namespace Hd2ModSettingGui
             Watch();
             trStamp = Protocol.TranslationStamp(folder);
             listStamp = Protocol.ListStamp(folder);
-            Protocol.GameTag = Environs.GameLanguageTag(folder);
+            Protocol.GameTag = Environs.GameLanguageTag(LanguageFolder());
             mods = Protocol.Lists(folder, places);
             found = mods.Select(m => { try { return Protocol.LoadFor(folder, m.Name, m.Path); } catch (Exception) { return null; } }).ToList();
             HandLanguages();
@@ -294,6 +295,7 @@ namespace Hd2ModSettingGui
             // the list scrolls under its fixed head (the user, 10-24: a long one ran out of room)
             var nav = new DockPanel { Margin = new Thickness(16, 24, 16, 16) };
             var navHead = new StackPanel();
+            AddSideSwitch(navHead);
             navHead.Children.Add(Text(Texts.Get("filter"), "Label", margin: null));
             navHead.Children.Add(Spaced(Input(Texts.Get("mod_ph"), modQuery, v => { modQuery = v; RenderMods(); }), 6, 16));
             if (places == null) navHead.Children.Add(Text(Texts.Get("installed"), "Label"));
@@ -1310,7 +1312,7 @@ namespace Hd2ModSettingGui
         // the game's language and the values (the open mod's undo starts afresh)
         void Reload_Click(object sender, RoutedEventArgs e)
         {
-            running = Environs.GameRunning();
+            running = GameRunningHere(follow: false);
             writeTimer.Stop();
             Write();
             Load(texts: true);
@@ -1371,6 +1373,13 @@ namespace Hd2ModSettingGui
                 Child = new TextBlock { Text = folder, FontFamily = (FontFamily)Theme.Res["Mono"], FontSize = 13, TextWrapping = TextWrapping.Wrap },
             });
             col.Children.Add(row);
+
+            // HellForge's installation (the window hosted by Quick Deploy keeps to the official game)
+            if (!Host.Hosted)
+            {
+                col.Children.Add(Spaced(Text(Texts.Get("side_hellforge"), "Label"), 32, 8));
+                col.Children.Add(HellForgeRow());
+            }
 
             // the peek
             col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));
@@ -1518,11 +1527,12 @@ namespace Hd2ModSettingGui
         // ---------------------------------------------------------------- the watch and the status
         void Tick()
         {
-            running = Environs.GameRunning();
+            LookForHellForge();
+            running = GameRunningHere(follow: true);
             // a list that appears (or goes) is loaded: the same ones leave all as it is
             if (!SameLists(Protocol.Lists(folder, places))) Load();
             else if (!writeTimer.IsEnabled && (Protocol.ListStamp(folder) != listStamp || Protocol.TranslationStamp(folder) != trStamp
-                     || (++langLook % 5 == 0 && Environs.GameLanguageTag(folder) != Protocol.GameTag))) Load(texts: true);
+                     || (++langLook % 5 == 0 && Environs.GameLanguageTag(LanguageFolder()) != Protocol.GameTag))) Load(texts: true);
             // the file changed in the game (and none of ours waits to be written): shown, not written back
             // (the profile switched: the mod puts that profile's values in its file, read back here)
             else TakeBack();
@@ -1616,6 +1626,7 @@ namespace Hd2ModSettingGui
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             g.ColumnDefinitions.Add(new ColumnDefinition());
             var nav = new StackPanel { Margin = new Thickness(16, 24, 16, 16) };
+            AddSideSwitch(nav);
             nav.Children.Add(Spaced(Text(Texts.Get("installed"), "Label"), 0, 8, 8));
             foreach (var k in new[] { 1.0, 0.6, 0.3 })
                 nav.Children.Add(new Border
