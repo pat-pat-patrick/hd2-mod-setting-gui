@@ -1377,9 +1377,8 @@ namespace Hd2ModSettingGui
             });
             col.Children.Add(row);
 
-            // HellForge's installation
-            col.Children.Add(Spaced(Text(Texts.Get("side_hellforge"), "Label"), 32, 8));
-            col.Children.Add(HellForgeRow());
+            // HellForge: the switch, and its installation while it is on
+            HellForgeSection(col);
 
             // the peek
             col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));

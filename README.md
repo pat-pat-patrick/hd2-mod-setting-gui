@@ -58,8 +58,9 @@ The game has to run in borderless windowed mode. The window holds the key
 only while the game runs, so other programs keep it the rest of the time.
 The key can be changed or cleared in the window's settings.
 
-**HellForge.** Where [HellForge](https://github.com/SkyeShade/HellForge) is
-installed, a switch in the title bar picks the game:
+**HellForge.** Turned on in the window's settings (it is off at first), and where
+[HellForge](https://github.com/SkyeShade/HellForge) is installed, a switch in
+the title bar picks the game:
 **Official** or **HellForge**. HellForge keeps its mods' settings in a folder
 of its own, which the window finds by itself:
 
@@ -384,7 +385,7 @@ Windows 11 上把鼠标停在最大化按钮上会弹出分屏布局。
 游戏需要使用无边框窗口模式。窗口只在游戏运行时占用这个键，其余时间其他程序照常使用。
 这个键可以在窗口设置里更换或清除。
 
-**HellForge**：电脑上装有 [HellForge](https://github.com/SkyeShade/HellForge) 时，标题栏里有一个切换，选择
+**HellForge**：在窗口设置里打开（默认关闭），且电脑上装有 [HellForge](https://github.com/SkyeShade/HellForge) 时，标题栏里有一个切换，选择
 **Official** 或 **HellForge**。HellForge 的 mod 设置放在它自己的文件夹里，窗口会自己找到：
 
 - 安装位置按默认位置、HellForge 快捷方式、或正在运行的 HellForge 启动器去找；也可以在窗口设置里另选。

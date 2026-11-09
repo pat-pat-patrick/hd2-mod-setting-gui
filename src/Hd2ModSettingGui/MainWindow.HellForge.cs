@@ -20,11 +20,19 @@ namespace Hd2ModSettingGui
         bool hfReading, hfGameWas;
         DateTime hfNext;                // the status read again no sooner (2 s; 30 s after it failed)
 
+        // (the user, 2026-11-09: "给它做成一个设置选项开关，默认是关闭的，开启之后才会有这个切换")
+        // HellForge is looked for, and the switch shown, only while the window's setting
+        // (config.json "hellforge") is on; off by default
+        bool hfOn;
+        bool hfFixed;                   // --folder given: the folder stays, HellForge or not
+
         void FindHellForge(bool fixedFolder)
         {
-            if (fixedFolder) return;
-            hfLook = true;
             var cfg = Environs.LoadConfig();
+            hfOn = cfg.TryGetValue("hellforge", out var on) && on is bool b && b;
+            hfFixed = fixedFolder;
+            if (fixedFolder || !hfOn) return;
+            hfLook = true;
             var chosen = cfg.TryGetValue("hellforge_dir", out var d) ? d as string : null;
             hfInstall = HellForge.Find(chosen);
             if (hfInstall == null) return;
@@ -145,7 +153,47 @@ namespace Hd2ModSettingGui
             SideBox.Child = seg;
         }
 
-        // in the settings page: the installation, or that none was found, and a folder to choose
+        /// <summary>The window's HellForge setting. Off: the official game's folder again, the
+        /// switch gone and HellForge no longer looked for (its place stays remembered).</summary>
+        void SetHellForge(bool on)
+        {
+            if (on == hfOn) return;
+            var cfg = Environs.LoadConfig();
+            cfg["hellforge"] = on;
+            Environs.SaveConfig(cfg);
+            if (on)
+            {
+                FindHellForge(hfFixed);
+                running = GameRunningHere(follow: false);
+            }
+            else
+            {
+                SetSide(false);
+                hfOn = false;
+                hfLook = false;
+                hfInstall = null;
+                hfStatus = null;
+                running = GameRunningHere(follow: false);
+            }
+            Build();
+        }
+
+        // in the settings page: the switch, and while it is on, where HellForge is
+        void HellForgeSection(Panel col)
+        {
+            col.Children.Add(Spaced(Text(Texts.Get("side_hellforge"), "Label"), 32, 8));
+            var line = new DockPanel();
+            var sw = new CheckBox { Style = S("Switch"), IsChecked = hfOn, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 2, 0, 0) };
+            sw.Checked += (s, e) => SetHellForge(true);
+            sw.Unchecked += (s, e) => SetHellForge(false);
+            DockPanel.SetDock(sw, Dock.Right);
+            line.Children.Add(sw);
+            line.Children.Add(Text(Texts.Get("hf_on"), "Hint"));
+            col.Children.Add(line);
+            if (hfOn && !hfFixed) col.Children.Add(Spaced(HellForgeRow(), 12, 0));
+        }
+
+        // the installation, or that none was found, and a folder to choose
         FrameworkElement HellForgeRow()
         {
             var row = new DockPanel();

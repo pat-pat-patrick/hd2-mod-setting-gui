@@ -75,6 +75,7 @@
   "switched_off": "打开「{0}」后才能修改",
   "side_official": "Official",
   "side_hellforge": "HellForge",
+  "hf_on": "在标题栏显示 Official / HellForge 切换，用来查看和修改 HellForge 中 mod 的设置。",
   "hf_none": "没有找到 HellForge。",
   "hf_choose": "选择安装文件夹",
   "hf_not": "这个文件夹不是 HellForge 的安装位置：里面没有 hellforge-install.json。",

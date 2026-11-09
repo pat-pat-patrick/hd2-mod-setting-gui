@@ -76,6 +76,7 @@
   "switched_off": "Turn on “{0}” to change this",
   "side_official": "Official",
   "side_hellforge": "HellForge",
+  "hf_on": "Shows an Official / HellForge switch in the title bar, to see and change the settings of the mods in HellForge.",
   "hf_none": "No HellForge installation found.",
   "hf_choose": "Choose its folder",
   "hf_not": "This folder is not a HellForge installation: it has no hellforge-install.json.",
