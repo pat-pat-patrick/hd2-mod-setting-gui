@@ -11,8 +11,10 @@ namespace Hd2ModSettingGui
     {
         static ResourceDictionary res;
 
+        // with the version, as the compiled XAML has it: a host holding two versions of the
+        // plugin then reads each one's Theme from its own copy
         public static ResourceDictionary Res => res ?? (res = (ResourceDictionary)Application.LoadComponent(
-            new Uri("/" + typeof(Theme).Assembly.GetName().Name + ";component/Theme.xaml", UriKind.Relative)));
+            new Uri("/" + typeof(Theme).Assembly.GetName().Name + ";V" + typeof(Theme).Assembly.GetName().Version + ";component/Theme.xaml", UriKind.Relative)));
 
         public static object Get(string key) => Res[key];
 

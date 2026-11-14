@@ -13,6 +13,12 @@
     <AssemblyName>HD2QD.Settings</AssemblyName>
     <RootNamespace>Hd2ModSettingGui</RootNamespace>
     <Version>1.20.0</Version>
+    <!-- the version in its XAML addresses ("/HD2QD.Settings;V1.20.0.0;component/..."): a host
+         holding two versions of the plugin at once (one read to be added, one in use) then finds
+         each window's XAML in its own copy; without it WPF takes the copy loaded last by name,
+         and the other's window fails with "does not have a resource identified by the URI"
+         (a player, 2026-11-14) -->
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
     <Product>HD2 Mod Setting GUI</Product>
     <Company>pat-pat-patrick</Company>
     <Copyright>MIT License</Copyright>
