@@ -12,7 +12,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>HD2QD.Settings</AssemblyName>
     <RootNamespace>Hd2ModSettingGui</RootNamespace>
-    <Version>1.20.1</Version>
+    <Version>1.20.2</Version>
     <!-- the version in its XAML addresses ("/HD2QD.Settings;V1.20.0.0;component/..."): a host
          holding two versions of the plugin at once (one read to be added, one in use) then finds
          each window's XAML in its own copy; without it WPF takes the copy loaded last by name,

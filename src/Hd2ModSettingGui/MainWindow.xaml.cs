@@ -48,6 +48,14 @@ namespace Hd2ModSettingGui
         readonly Dictionary<string, (ModState St, string Key, Action<object> Show, FrameworkElement Reset)> rows =
             new Dictionary<string, (ModState, string, Action<object>, FrameworkElement)>();
         StackPanel navList, groupList, panel;
+        ScrollViewer panelScroll;
+        TextBox searchBox;
+        string panelKey;             // what the panel shows: the mod, and its group or the search
+        // a page built again keeps where each of its lists was scrolled, while the list
+        // shows the same thing (the user, 11-23: every click on a group, every return to
+        // the window, scrolled the groups back to the top)
+        readonly List<(string Name, Func<string> Key, ScrollViewer Sv)> scrolled = new List<(string, Func<string>, ScrollViewer)>();
+        readonly Dictionary<string, (string Key, double Y)> scrolledTo = new Dictionary<string, (string, double)>();
         TextBlock scanText;
         Button copyBtn;
         // the acrylic (Windows 11), and the peek (see Peek)
@@ -147,13 +155,18 @@ namespace Hd2ModSettingGui
             finally { readingPlaces = false; }
             if (read == null) return;
             bool first = library == null;
+            bool same = !first && PlacesKey(read) == PlacesKey(library);
             library = read;
             // a list a library mod ships, new or from another mod's folder: read again
             if (!SameLists(Protocol.Lists(folder, places))) Load();
             if (first && state != null && PlaceOf(state.List.Title) != "on" && Entries().Count > 0 && PlaceOf(Entries()[0]) == "on")
                 Open(Entries()[0]);              // the first view opens an enabled mod
-            else if (state != null && !settingsOpen) Build();
+            else if (state != null && !settingsOpen && !same) Build();     // (the same library: nothing to draw again)
         }
+
+        static string PlacesKey(Dictionary<string, Host.Place> d) =>
+            string.Join("\n", d.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase).Select(k =>
+                k.Key + "|" + k.Value.State + "|" + string.Join("/", k.Value.Mods) + "|" + k.Value.Package + "|" + k.Value.PackageOn));
 
         /// <summary>The lists shown are these, from the same files.</summary>
         bool SameLists(List<(string Name, string Path)> now) =>
@@ -229,6 +242,8 @@ namespace Hd2ModSettingGui
             CloseBtn.ToolTip = Texts.Get("close");
             UndoBtn.Content = Texts.Get("undo");
             ResetModBtn.Content = Texts.Get("reset_mod");
+            foreach (var (name, key, sv) in scrolled) scrolledTo[name] = (key(), sv.VerticalOffset);
+            scrolled.Clear();
             PaintSide();
             rows.Clear();
             controlOf.Clear();
@@ -305,7 +320,8 @@ namespace Hd2ModSettingGui
             DockPanel.SetDock(navHead, Dock.Top);
             nav.Children.Add(navHead);
             navList = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
-            nav.Children.Add(Scroller(navList));
+            var navScroll = Scroller(navList);
+            nav.Children.Add(navScroll);
             Grid.SetColumn(nav, 0);
             g.Children.Add(nav);
             var l1 = Line(true);
@@ -334,6 +350,7 @@ namespace Hd2ModSettingGui
             DockPanel.SetDock(titles, Dock.Left);
             head.Children.Add(titles);
             var search = Input(Texts.Get("search"), query, v => { query = v; RenderPanel(); RenderGroups(); });
+            searchBox = search;
             search.Width = 280;
             search.VerticalAlignment = VerticalAlignment.Center;
             DockPanel.SetDock(search, Dock.Right);
@@ -358,7 +375,8 @@ namespace Hd2ModSettingGui
             DockPanel.SetDock(gnavHead, Dock.Top);
             gnav.Children.Add(gnavHead);
             groupList = new StackPanel();
-            gnav.Children.Add(Scroller(groupList));
+            var groupScroll = Scroller(groupList);
+            gnav.Children.Add(groupScroll);
             content.Children.Add(gnav);
             var l2 = Line(true);
             Grid.SetColumn(l2, 1);
@@ -374,9 +392,14 @@ namespace Hd2ModSettingGui
             };
             Grid.SetColumn(scroll, 2);
             content.Children.Add(scroll);
+            panelScroll = scroll;
             RenderMods();
             RenderGroups();
             RenderPanel();
+            var shown = state.List.Title;
+            KeepScroll(navScroll, "mods", () => "");
+            KeepScroll(groupScroll, "groups", () => shown);
+            KeepScroll(scroll, "panel", () => panelKey);
             return g;
         }
 
@@ -387,6 +410,13 @@ namespace Hd2ModSettingGui
             item.MouseEnter += (s, e) => m.Active = true;
             item.MouseLeave += (s, e) => m.Active = chosen;
             return m;
+        }
+
+        // a list of the page just built: back where it was, if it shows what it showed then
+        void KeepScroll(ScrollViewer sv, string name, Func<string> key)
+        {
+            scrolled.Add((name, key, sv));
+            if (scrolledTo.TryGetValue(name, out var was) && was.Key == key()) sv.ScrollToVerticalOffset(was.Y);
         }
 
         // a list that scrolls when it is longer than its room; its bar only then
@@ -487,7 +517,14 @@ namespace Hd2ModSettingGui
                 label.VerticalAlignment = VerticalAlignment.Center;
                 row.Child = label;
                 int gi = index;
-                row.MouseLeftButtonUp += (s, e) => { groupOf[state.List.Title] = gi; query = ""; Build(); };
+                // only the groups and the panel drawn again: the page stays as it is
+                row.MouseLeftButtonUp += (s, e) =>
+                {
+                    groupOf[state.List.Title] = gi;
+                    query = "";
+                    if (searchBox != null && searchBox.Text != "") searchBox.Text = "";   // draws them itself
+                    else { RenderPanel(); RenderGroups(); }
+                };
                 groupList.Children.Add(row);
             }
             ResetGroupBtn.Content = Texts.Get("reset_group", CurrentGroup().Name);
@@ -499,7 +536,12 @@ namespace Hd2ModSettingGui
             panel.Children.Clear();
             rows.Clear();
             switched.Clear();
+            controlOf.Clear();
+            keyPaint.Clear();
             var q = query.Trim();
+            // another group, or another search: from its top
+            var key = state.List.Title + "\n" + (q == "" ? CurrentGroup().Index.ToString() : "?" + q);
+            if (key != panelKey) { panelKey = key; panelScroll?.ScrollToHome(); }
             var list = new List<(string Group, string Key, ModState Owner)>();
             if (q != "")
             {
@@ -1346,6 +1388,7 @@ namespace Hd2ModSettingGui
         {
             var col = new StackPanel { MaxWidth = 720, Margin = new Thickness(24, 40, 24, 24), HorizontalAlignment = HorizontalAlignment.Stretch };
             var scroll = new ScrollViewer { Content = col, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
+            KeepScroll(scroll, "settings", () => "");
             col.Children.Add(Text(Texts.Get("settings_title"), size: 28, weight: FontWeights.Bold));
 
             // the language
