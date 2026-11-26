@@ -22,10 +22,15 @@ namespace Hd2ModSettingGui
         public static string Summary(string lang) => Texts.In(lang, "plugin_summary");
 
         static MainWindow open;
+        // the tab of the manager's window it is in, while one is open (a manager that has tabs)
+        static Action showTab;
 
-        /// <summary>The window, or the one already open brought forward.</summary>
+        /// <summary>The window, or the one already open brought forward. A manager that has tabs
+        /// (Quick Deploy 0.25.0; the user, 2026-11-26: plugin windows piled up) gets the window's
+        /// content as one of its tabs instead.</summary>
         public static void Open(Window owner, Dictionary<string, object> host)
         {
+            if (showTab != null) { showTab(); return; }
             if (open != null)
             {
                 if (open.WindowState == WindowState.Minimized) open.WindowState = WindowState.Normal;
@@ -34,6 +39,13 @@ namespace Hd2ModSettingGui
             }
             Host.Library = host.TryGetValue("library", out var l) ? l as Func<List<Dictionary<string, object>>> : null;
             Texts.Lang = Texts.Resolve(host.TryGetValue("lang", out var l2) ? l2 as string : null);
+            if (host.TryGetValue("tab", out var tk) && tk is Func<string, FrameworkElement, Action, Dictionary<string, object>> tab)
+            {
+                var w = new MainWindow();
+                var handle = tab(Title(Texts.Lang), w.Untie(), () => { w.Finish(); showTab = null; });
+                showTab = handle.TryGetValue("show", out var sh) ? sh as Action : null;
+                return;
+            }
             open = new MainWindow();
             open.Closed += (s, e) => open = null;
             open.Show();

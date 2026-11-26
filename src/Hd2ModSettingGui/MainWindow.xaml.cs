@@ -212,7 +212,7 @@ namespace Hd2ModSettingGui
                 }
                 catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is InvalidOperationException)
                 {
-                    Dialog.Tell(this, mods[i].Path + "\n" + e.Message);
+                    Dialog.Tell(Here, mods[i].Path + "\n" + e.Message);
                 }
             }
             var order = members.OrderByDescending(m => m.List.Options.Count(o => o.HasValue)).ToList();
@@ -795,7 +795,7 @@ namespace Hd2ModSettingGui
 
         void DeleteProfile(int i)
         {
-            if (!Dialog.Ask(this, Texts.Get("confirm_delete", profiles.Items[i].Name), Texts.Get("delete"))) return;
+            if (!Dialog.Ask(Here, Texts.Get("confirm_delete", profiles.Items[i].Name), Texts.Get("delete"))) return;
             profiles.Delete(i);
             SaveProfiles();
             RenderProfiles();
@@ -1241,7 +1241,7 @@ namespace Hd2ModSettingGui
             var c = (Color)ColorConverter.ConvertFromString((string)st.Value(key));
             using (var dlg = new System.Windows.Forms.ColorDialog { FullOpen = true, Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B) })
             {
-                if (dlg.ShowDialog(new Win32Owner(this)) == System.Windows.Forms.DialogResult.OK)
+                if (dlg.ShowDialog(new Win32Owner(Here)) == System.Windows.Forms.DialogResult.OK)
                     Change(st, key, string.Format("#{0:x2}{1:x2}{2:x2}", dlg.Color.R, dlg.Color.G, dlg.Color.B));
             }
         }
@@ -1312,7 +1312,7 @@ namespace Hd2ModSettingGui
                 try { st.Save(); }
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
-                    Dialog.Tell(this, Texts.Get("write_failed", st.List.SettingsPath + "\n" + e.Message));
+                    Dialog.Tell(Here, Texts.Get("write_failed", st.List.SettingsPath + "\n" + e.Message));
                 }
             }
             dirty.Clear();
@@ -1347,7 +1347,7 @@ namespace Hd2ModSettingGui
         void ResetMod_Click(object sender, RoutedEventArgs e)
         {
             if (state == null) return;
-            if (!Dialog.Ask(this, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Lang)), Texts.Get("reset"))) return;
+            if (!Dialog.Ask(Here, Texts.Get("confirm_all", NameOf(members.Select(m => m.List), Texts.Lang)), Texts.Get("reset"))) return;
             foreach (var m in members)
                 if (m.Reset(m.List.Options.Select(o => o.Key).Where(k => k != m.List.ProfileKey))) Did(m);
             Refresh();
@@ -1423,20 +1423,25 @@ namespace Hd2ModSettingGui
             // HellForge: the switch, and its installation while it is on
             HellForgeSection(col);
 
-            // the peek
-            col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));
-            var line = new DockPanel();
-            var sw = new CheckBox { Style = S("Switch"), IsChecked = peekOn, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 2, 0, 0) };
-            sw.Checked += (s, e) => SetPeek(true);
-            sw.Unchecked += (s, e) => SetPeek(false);
-            DockPanel.SetDock(sw, Dock.Right);
-            line.Children.Add(sw);
-            line.Children.Add(Text(Texts.Get("peek_d"), "Hint"));
-            col.Children.Add(line);
+            // the peek and the key over the game work on a window of its own: not in a tab of HD2
+            // Mod Quick Deploy's window (Untie)
+            if (!Tabbed)
+            {
+                // the peek
+                col.Children.Add(Spaced(Text(Texts.Get("peek"), "Label"), 32, 8));
+                var line = new DockPanel();
+                var sw = new CheckBox { Style = S("Switch"), IsChecked = peekOn, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(24, 2, 0, 0) };
+                sw.Checked += (s, e) => SetPeek(true);
+                sw.Unchecked += (s, e) => SetPeek(false);
+                DockPanel.SetDock(sw, Dock.Right);
+                line.Children.Add(sw);
+                line.Children.Add(Text(Texts.Get("peek_d"), "Hint"));
+                col.Children.Add(line);
 
-            // the key that brings the window up over the game
-            col.Children.Add(Spaced(Text(Texts.Get("overlay"), "Label"), 32, 8));
-            col.Children.Add(OverlayRow());
+                // the key that brings the window up over the game
+                col.Children.Add(Spaced(Text(Texts.Get("overlay"), "Label"), 32, 8));
+                col.Children.Add(OverlayRow());
+            }
 
             // about
             col.Children.Add(Spaced(Text(Texts.Get("about"), "Label"), 32, 8));
@@ -1826,6 +1831,41 @@ namespace Hd2ModSettingGui
         {
             if (writeTimer.IsEnabled) { writeTimer.Stop(); Write(); }
             SystemCommands.CloseWindow(this);
+        }
+
+        /// <summary>Set once HD2 Mod Quick Deploy shows the window's content as one of its tabs
+        /// (Untie): the dialogs then stand on the manager's window.</summary>
+        internal bool Tabbed;
+
+        Window Here => Tabbed ? Window.GetWindow(Frame) ?? Application.Current?.MainWindow : this;
+
+        /// <summary>The window's content, taken out to be a tab of HD2 Mod Quick Deploy's window
+        /// (0.25.0; the user, 2026-11-26: plugin windows piled up), without the caption's
+        /// minimise, maximise and close: the tab has its own. This window is never shown.</summary>
+        internal FrameworkElement Untie()
+        {
+            Tabbed = true;
+            var root = Frame;
+            Content = null;
+            root.BorderThickness = new Thickness(0);
+            root.Resources.MergedDictionaries.Add(Theme.Res);
+            foreach (var b in new UIElement[] { MinBtn, MaxBtn, CloseBtn }) b.Visibility = Visibility.Collapsed;
+            // read again each time the tab comes back, as the window does when it is activated
+            root.IsVisibleChanged += (s, e) => { if ((bool)e.NewValue) ReadPlaces(); };
+            return root;
+        }
+
+        /// <summary>The tab closed: what is still to be written is written, and the timers and
+        /// the folder's watcher stop.</summary>
+        internal void Finish()
+        {
+            if (writeTimer.IsEnabled) { writeTimer.Stop(); Write(); }
+            ReleaseHotkey();
+            tick.Stop();
+            updateTimer.Stop();
+            peekEnd.Stop();
+            watcher?.Dispose();
+            watcher = null;
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)

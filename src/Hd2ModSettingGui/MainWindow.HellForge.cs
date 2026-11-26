@@ -212,11 +212,11 @@ namespace Hd2ModSettingGui
 
         void ChooseHellForge()
         {
-            var d = FolderPicker.Pick(this, hfInstall, Texts.Get("hf_choose"));
+            var d = FolderPicker.Pick(Here, hfInstall, Texts.Get("hf_choose"));
             if (d == null) return;
             if (!HellForge.IsInstall(d))
             {
-                Dialog.Tell(this, Texts.Get("hf_not"));
+                Dialog.Tell(Here, Texts.Get("hf_not"));
                 return;
             }
             Remember(d);
